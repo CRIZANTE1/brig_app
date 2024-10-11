@@ -5,5 +5,13 @@
         "password": "$2b$12$HpNMFs4u3UCwKGIer9TpqODYWfu5681/Ji6qTulD5N7.RtlawXMLy",
         "name": "CRISTIAN CARLOS",
         "role": "admin"
+    },
+
+   
+    "OPSUL": {
+        "password": "$2b$12$WIs4f.tx6jXlGNeNTcvJrulkOXQ47IeqZ5BdNpyrDwA76FYVBmLAq",
+        "name": "Regional OPSUL",
+        "role": "user"
     }
 }
+
