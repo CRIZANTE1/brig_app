@@ -74,7 +74,7 @@ def emitir_relatorio(brigadistas_necessarios):
     
     relatorio = f"""Cálculo de Brigada de Emergência
 
-Conforme Instrução Técnica nº 17/2019 do Corpo de Bombeiros do Estado de São Paulo, Tabela A.1 - Composição mínima da brigada de incêndio por pavimento; Divisão {divisao}; Nota 5 - Regra de acréscimo de brigadistas para população fixa maior que 10; Exemplo B; Total de turnos; Nota 7, a quantidade mínima de brigadistas deve ser conforme o previsto na tabela ou de acordo com a necessidade no cenário de combate ao incêndio, o que for maior;
+Conforme Instrução Técnica nº 17/2025 do Corpo de Bombeiros do Estado de São Paulo, Tabela A.1 - Composição mínima da brigada de incêndio por pavimento; Divisão {divisao}; Nota 5 - Regra de acréscimo de brigadistas para população fixa maior que 10; Exemplo B; Total de turnos; Nota 7, a quantidade mínima de brigadistas deve ser conforme o previsto na tabela ou de acordo com a necessidade no cenário de combate ao incêndio, o que for maior;
 
 Implementando as regras especificadas nesses elementos, calculando primeiramente o mínimo pela Tabela A.1, divisão {divisao}, Nota 7 e Nota 5, depois seguindo o Exemplo B, levando em consideração os turnos, e retornando o maior valor encontrado.
 
