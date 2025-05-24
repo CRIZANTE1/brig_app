@@ -114,7 +114,7 @@ def pagina_sobre():
 
     st.header("Referências Normativas")
     st.write('''
-    - SÃO PAULO (Estado). Instrução Técnica nº 17/2019 – Brigada de Incêndio.
+    - SÃO PAULO (Estado). Instrução Técnica nº 17/2025 – Brigada de Incêndio.
     - ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. NBR 14277: Instalações e equipamentos para treinamento de combate a incêndio.
     - SÃO PAULO (Estado). Decreto Estadual nº 63.911, de 10 de dezembro de 2018.
     - ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. NBR 18801: Gestão de emergências.
