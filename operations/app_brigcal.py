@@ -99,13 +99,13 @@ Data de Emissão: {data_atual}
 Brigadistas necessários: {brigadistas_necessarios}
 
 Referências Normativas:
-1. SÃO PAULO (Estado). Instrução Técnica nº 17/2019 – Brigada de Incêndio. Secretaria da Segurança Pública, Corpo de Bombeiros da Polícia Militar do Estado de São Paulo, São Paulo, 2019.
+1. SÃO PAULO (Estado). Instrução Técnica nº 17/2025 – Brigada de Incêndio. Secretaria da Segurança Pública, Corpo de Bombeiros da Polícia Militar do Estado de São Paulo, São Paulo, 2019.
 2. ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. NBR 14277: Instalações e equipamentos para treinamento de combate a incêndio. Rio de Janeiro: ABNT, 2005.
 3. SÃO PAULO (Estado). Decreto Estadual nº 63.911, de 10 de dezembro de 2018. Regulamento de Segurança contra Incêndio das Edificações e Áreas de Risco do Estado de São Paulo. Diário Oficial do Estado de São Paulo, São Paulo, 11 dez. 2018.
 4. ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. NBR 18801: Gestão de emergências. Rio de Janeiro: ABNT, 2010.
 5. ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. NBR ISO 45001: Sistemas de gestão de segurança e saúde ocupacional, Requisitos com orientação para uso. Rio de Janeiro: ABNT, 2018.
 
-Desenvolvido por: CRISTIAN FERREIRA CARLOS, cristiancarlos@vibraenergia.com.br"""
+https://brigapp-baeri.streamlit.app, desenvolvido por: CRISTIAN FERREIRA CARLOS, cristiancarlos@vibraenergia.com.br"""
     
     return relatorio
 
