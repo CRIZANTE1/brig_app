@@ -3,7 +3,8 @@ from utils.google_sheets_handler import GoogleSheetsHandler
 from IA.ai_operations import AIOperations
 from about import show_about_page
 from auth.login_page import show_login_page, show_logout_button
-from auth.auth_utils import get_user_display_name, get_user_email
+
+from auth.auth_utils import get_user_display_name 
 from pages import calculator_page
 
 st.set_page_config(page_title="Cálculo de Brigadistas", page_icon="🔥", layout="wide")
@@ -37,10 +38,8 @@ def main():
     selected_page_function = page_options[selected_page_name]
     
     if selected_page_name == "Cálculo de Brigadistas":
-        # Pega o e-mail do usuário aqui, no main
-        user_email = get_user_email()
-        # Passa os handlers E o e-mail para a função da página
-        selected_page_function(handler, ai_operator, user_email)
+        # A página da calculadora agora buscará o e-mail quando precisar.
+        selected_page_function(handler, ai_operator)
     else:
         selected_page_function()
 
