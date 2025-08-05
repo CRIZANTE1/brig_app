@@ -3,8 +3,7 @@ import streamlit as st
 from utils.google_sheets_handler import GoogleSheetsHandler
 from IA.rag_analyzer import RAGAnalyzer
 import re
-from operations.pdf_generator import generate_pdf_report
-
+from operations.pdf_generator import generate_pdf_report_abnt
 
 
 def is_valid_date_format(date_string: str) -> bool:
