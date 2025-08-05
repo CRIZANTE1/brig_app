@@ -5,12 +5,11 @@ from datetime import datetime
 from google.oauth2.service_account import Credentials
 
 # --- Nomes das Abas ---
-# Manter como constantes globais facilita a manutenção.
+# A constante ADMIN_SHEET_NAME foi removida.
 EMPRESAS_SHEET = "Empresas"
 DADOS_CALCULO_SHEET = "Dados_Calculo"
 BRIGADISTAS_SHEET = "Brigadistas_Treinados"
 RESULTADOS_SHEET = "Resultados_Salvos"
-ADMIN_SHEET_NAME = "adm"
 
 
 # --- Funções Globais com Cache ---
@@ -35,16 +34,14 @@ def connect_to_gsheets():
 def get_sheet_data_as_df(_gspread_client, spreadsheet_id: str, sheet_name: str) -> pd.DataFrame:
     """
     Busca dados de uma aba específica e retorna como um DataFrame pandas.
-    Esta função é global para que o @st.cache_data funcione corretamente, pois seus
-    argumentos são "hashable".
+    Esta função é global para que o @st.cache_data funcione corretamente.
     """
     try:
         spreadsheet = _gspread_client.open_by_key(spreadsheet_id)
         worksheet = spreadsheet.worksheet(sheet_name)
-        # get_all_records é mais robusto para criar DataFrames
         records = worksheet.get_all_records()
         df = pd.DataFrame(records)
-        return df.dropna(how="all") # Remove linhas que estão completamente vazias
+        return df.dropna(how="all")
     except gspread.exceptions.WorksheetNotFound:
         st.error(f"Aba '{sheet_name}' não encontrada na planilha. Por favor, verifique o nome da aba.")
         return pd.DataFrame()
@@ -73,7 +70,6 @@ class GoogleSheetsHandler:
         """
         Método de conveniência que chama a função global cacheada para obter os dados.
         """
-        # Passa a conexão (self.client) e o ID da planilha para a função cacheada.
         return get_sheet_data_as_df(self.client, self.spreadsheet_id, sheet_name)
 
     def get_company_list(self) -> list:
@@ -91,13 +87,11 @@ class GoogleSheetsHandler:
         if empresas_df.empty or dados_df.empty or 'Razao_Social' not in empresas_df.columns:
             return None
 
-        # Filtra para encontrar o ID da empresa
         id_empresa_series = empresas_df.loc[empresas_df['Razao_Social'] == company_name, 'ID_Empresa']
         if id_empresa_series.empty:
             return None
         
         id_empresa = id_empresa_series.iloc[0]
-        # Filtra os dados de cálculo usando o ID encontrado
         company_data = dados_df[dados_df['ID_Empresa'] == id_empresa]
         if not company_data.empty:
             return company_data.iloc[0].to_dict()
@@ -123,7 +117,6 @@ class GoogleSheetsHandler:
         try:
             spreadsheet = self.client.open_by_key(self.spreadsheet_id)
             worksheet = spreadsheet.worksheet(RESULTADOS_SHEET)
-            # Monta a linha na ordem correta das colunas esperadas
             data_row = [
                 data.get("id_empresa"),
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -134,7 +127,6 @@ class GoogleSheetsHandler:
                 data.get("total_calculado"),
                 str(data.get("detalhe_turnos"))
             ]
-            # Adiciona a linha ao final da planilha
             worksheet.append_row(data_row, value_input_option='USER_ENTERED')
             st.success("Resultado do cálculo salvo com sucesso na planilha!")
         except gspread.exceptions.WorksheetNotFound:
