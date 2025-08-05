@@ -1,6 +1,6 @@
 import streamlit as st
-from google_sheets import authenticate_gspread, get_sheet_data
-from rag_model import get_rag_recommendation
+# from google_sheets import authenticate_gspread, get_sheet_data
+from utils.rag_model import get_rag_recommendation
 from about import show_about_page
 from auth.login_page import show_login_page, show_logout_button
 from auth.auth_utils import is_user_logged_in, get_user_display_name
@@ -61,17 +61,17 @@ def main():
         st.title("Cálculo de Brigada de Incêndio")
 
         # Google Sheets Integration
-        st.subheader("Integração com Google Sheets")
-        spreadsheet_id = st.text_input("ID da Planilha Google")
-        sheet_name = st.text_input("Nome da Aba")
+        # st.subheader("Integração com Google Sheets")
+        # spreadsheet_id = st.text_input("ID da Planilha Google")
+        # sheet_name = st.text_input("Nome da Aba")
 
-        if st.button("Carregar Dados da Planilha"):
-            gc = authenticate_gspread()
-            if gc:
-                data = get_sheet_data(gc, spreadsheet_id, sheet_name)
-                if data:
-                    st.session_state.sheet_data = data[0]  # Assuming first row has the data
-                    st.success("Dados carregados com sucesso!")
+        # if st.button("Carregar Dados da Planilha"):
+        #     gc = authenticate_gspread()
+        #     if gc:
+        #         data = get_sheet_data(gc, spreadsheet_id, sheet_name)
+        #         if data:
+        #             st.session_state.sheet_data = data[0]  # Assuming first row has the data
+        #             st.success("Dados carregados com sucesso!")
 
         with st.form(key='brigade_form'):
             st.subheader("Dados da Edificação")
