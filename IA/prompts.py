@@ -1,6 +1,21 @@
-# IA/prompts.py
-
 import pandas as pd
+
+def get_pdf_extraction_prompt() -> str:
+    """
+    Cria o prompt para instruir a IA a extrair nomes de um PDF de atestado.
+    """
+    return """
+    Sua tarefa é analisar o documento PDF fornecido, que é um atestado ou certificado de treinamento de brigada de incêndio.
+    Identifique a lista de todos os participantes treinados listados no documento.
+    
+    Retorne sua resposta estritamente no seguinte formato JSON, contendo uma única chave "nomes" com uma lista de strings:
+    
+    {"nomes": ["NOME COMPLETO DO PARTICIPANTE 1", "NOME COMPLETO DO PARTICIPANTE 2", "NOME COMPLETO DO PARTICIPANTE 3"]}
+    
+    Não inclua números de matrícula, CPF, títulos (como "Sr." ou "Dra."), ou qualquer outro texto. Apenas os nomes completos.
+    Se nenhum nome for encontrado, retorne uma lista vazia.
+    """
+
 
 def get_brigade_analysis_prompt(calc_data: dict, brigadistas_atuais: pd.DataFrame) -> str:
     """
