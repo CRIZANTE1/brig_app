@@ -1,5 +1,68 @@
 import pandas as pd
 
+def get_report_generation_prompt(calculation_json: dict) -> str:
+    """
+    Cria um prompt para que a IA gere um relatório técnico completo em Markdown
+    com base no resultado do cálculo (em formato JSON).
+    """
+    # Extrai os dados do JSON para facilitar a inserção no prompt
+    instalacao = calculation_json.get("dados_da_instalacao", {})
+    calculo_turnos = calculation_json.get("calculo_por_turno", [])
+    resumo = calculation_json.get("resumo_final", {})
+
+    # Formata a tabela de cálculo para o prompt
+    tabela_calculo = "Turno | População | Base | Acréscimo | Total Turno\n"
+    tabela_calculo += "-----|-----------|------|-----------|------------\n"
+    for turno_info in calculo_turnos:
+        tabela_calculo += (
+            f"{turno_info.get('turno')} | "
+            f"{turno_info.get('populacao')} | "
+            f"{turno_info.get('calculo_base')} | "
+            f"{turno_info.get('calculo_acrescimo')} | "
+            f"**{turno_info.get('total_turno')}**\n"
+        )
+
+    return f"""
+    **Persona:** Você é um Engenheiro de Segurança do Trabalho redigindo um relatório técnico oficial sobre o dimensionamento da Brigada de Incêndio de uma instalação. Sua linguagem deve ser formal, técnica e objetiva.
+
+    **Dados de Entrada (JSON do Cálculo Realizado):**
+    ```json
+    {json.dumps(calculation_json, indent=2)}
+    ```
+
+    **Sua Tarefa (Gerar Relatório em Markdown):**
+    Com base estritamente nos dados do JSON acima, redija um relatório técnico completo em formato Markdown contendo as seguintes seções obrigatórias:
+
+    ---
+
+    ### **Relatório de Dimensionamento de Brigada de Incêndio**
+
+    **1. Introdução**
+    - Apresente o objetivo do relatório: dimensionar a quantidade mínima de brigadistas para a instalação especificada.
+    - Mencione o nome da instalação ('imovel') e a razão social.
+
+    **2. Metodologia Aplicada**
+    - Explique que o cálculo foi realizado com base nos requisitos da norma ABNT NBR 14276 (ou a norma citada na `regra_base_aplicada`).
+    - Descreva o método: o número de brigadistas é determinado para cada turno de trabalho individualmente, considerando a população fixa, a divisão da edificação e o nível de risco.
+
+    **3. Detalhamento do Cálculo**
+    - Apresente os resultados do cálculo em uma tabela Markdown. Use a tabela abaixo como modelo.
+    
+    {tabela_calculo}
+    
+    - Após a tabela, explique textualmente como o cálculo para o turno mais crítico foi feito, citando a regra base e a regra de acréscimo que foram aplicadas (você pode extrair isso da seção `calculo_por_turno` do JSON).
+
+    **4. Conclusão**
+    - Apresente o resultado final consolidado.
+    - Declare o **número total de brigadistas** necessários para a edificação (a soma de todos os turnos).
+    - Declare o **efetivo mínimo** que deve estar presente por turno (o maior valor entre os turnos).
+    - Recomende que a empresa garanta que o número de brigadistas treinados e disponíveis em cada turno atenda a este mínimo dimensionado.
+
+    **5. Referências Normativas**
+    - Crie uma lista com as referências normativas utilizadas. Extraia as regras das chaves `regra_base_aplicada` e `regra_acrescimo_aplicada` do JSON e liste-as aqui. Cite a norma (ex: ABNT NBR 14276).
+
+    ---
+    """
 def get_pdf_extraction_prompt() -> str:
     """
     Cria o prompt para instruir a IA a extrair nomes de um PDF de atestado.
@@ -110,3 +173,4 @@ def get_brigade_calculation_prompt(ia_context: dict, knowledge_context: str) -> 
     }}
     ```
     """
+    
