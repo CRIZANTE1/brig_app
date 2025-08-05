@@ -1,12 +1,11 @@
-# app.py
 import streamlit as st
 from utils.google_sheets_handler import GoogleSheetsHandler
 from IA.ai_operations import AIOperations
 from about import show_about_page
 from auth.login_page import show_login_page, show_logout_button
 from auth.auth_utils import get_user_display_name, get_user_email
-# Importa as funções de frontend da nova pasta
-from operations import front
+# MUDANÇA AQUI: Importamos o módulo diretamente
+from operations.front import show_calculator_page, show_brigade_management_page
 
 st.set_page_config(page_title="Cálculo de Brigadistas", page_icon="🔥", layout="wide")
 
@@ -43,9 +42,10 @@ def main():
     company_list = handler.get_company_list()
     
     st.sidebar.title("Navegação")
+    # MUDANÇA AQUI: O dicionário agora aponta para as funções importadas diretamente
     page_options = {
-        "Cálculo de Brigadistas": front.show_calculator_page,
-        "Gestão de Brigadistas": front.show_brigade_management_page,
+        "Cálculo de Brigadistas": show_calculator_page,
+        "Gestão de Brigadistas": show_brigade_management_page,
         "Sobre": show_about_page
     }
     selected_page_name = st.sidebar.radio("Selecione uma página", page_options.keys())
