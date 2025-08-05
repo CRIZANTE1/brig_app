@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import google.generativeai as genai
 import json
-from .prompts import get_pdf_extraction_prompt, get_brigade_calculation_prompt
+from .prompts import get_pdf_extraction_prompt, get_brigade_calculation_prompt, get_report_generation_prompt
 
 @st.cache_data(ttl=3600) # Cache de 1 hora para a base de conhecimento indexada
 def load_and_embed_rag_base(_gspread_client, rag_sheet_id: str) -> tuple[pd.DataFrame, np.ndarray | None]:
@@ -127,3 +127,22 @@ class RAGAnalyzer:
         except Exception as e:
             st.error(f"Ocorreu um erro ao processar o PDF com a IA: {e}")
             return {"nomes": []}
+
+    def generate_full_report(self, calculation_json: dict) -> str:
+        """
+        Usa a IA para gerar um relatório técnico completo em Markdown com base no
+        resultado do cálculo (em formato JSON).
+        """
+        if not calculation_json:
+            return "Erro: Dados de cálculo não fornecidos para gerar o relatório."
+            
+        try:
+            # Cria o prompt usando o JSON do cálculo
+            prompt = get_report_generation_prompt(calculation_json)
+            
+            # Chama a IA para gerar o texto do relatório
+            response = self.model.generate_content(prompt)
+            
+            return response.text
+        except Exception as e:
+            return f"**Erro ao gerar o relatório:**\n\n{str(e)}"
