@@ -1,4 +1,5 @@
 import pandas as pd
+import json 
 
 def get_report_generation_prompt(calculation_json: dict) -> str:
     """
