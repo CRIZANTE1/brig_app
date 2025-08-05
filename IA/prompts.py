@@ -17,21 +17,18 @@ def get_pdf_extraction_prompt() -> str:
     """
 
 
+
 def get_brigade_calculation_prompt(ia_context: dict, knowledge_context: str) -> str:
     """
     Cria um prompt avançado que força a IA a seguir um raciocínio passo a passo,
-    incluindo exemplos de erros comuns para garantir a precisão do cálculo,
-    especialmente no arredondamento.
+    diferenciando claramente entre Regra Base e Regra de Acréscimo.
     """
     divisao = ia_context.get("division")
     risco = ia_context.get("risk")
     populations = ia_context.get("populations", [])
 
-    # Exemplo de cálculo para guiar a IA
-    example_calculation_logic = "..." # (O exemplo anterior continua o mesmo)
-
     return f"""
-    **Persona:** Você é um Engenheiro de Segurança do Trabalho altamente preciso e metódico. Sua tarefa é calcular o número de brigadistas para múltiplos turnos, seguindo rigorosamente as regras da Base de Conhecimento e evitando erros comuns.
+    **Persona:** Você é um Engenheiro de Segurança do Trabalho metódico e preciso. Sua tarefa é calcular o número de brigadistas, detalhando CADA regra usada.
 
     **Base de Conhecimento (Sua ÚNICA fonte de regras):**
     ---
@@ -39,29 +36,27 @@ def get_brigade_calculation_prompt(ia_context: dict, knowledge_context: str) -> 
     ---
 
     **Sua Tarefa (Raciocínio Passo a Passo Obrigatório):**
-    Você deve calcular o número de brigadistas para os seguintes turnos e populações: **{populations}**.
+    Você deve calcular o número de brigadistas para o cenário: Divisão='{divisao}', Risco='{risco}', Populações por Turno='{populations}'.
 
     Siga **EXATAMENTE** este processo de raciocínio para CADA TURNO:
 
-    **ETAPA 1: VALIDAÇÃO DE CONTEXTO**
-    - Filtre a 'Base de Conhecimento'. **IGNORE QUALQUER REGRA que não seja ESPECÍFICA para a Divisão '{divisao}'** ou que não seja uma regra geral de acréscimo.
+    **ETAPA 1: CÁLCULO BASE**
+    1.  **Busque a Regra Base:** Encontre na Base de Conhecimento a regra específica para a **população base (até 10 pessoas)** da Divisão '{divisao}' e Risco '{risco}'. Esta é a sua `regra_base_aplicada`.
+    2.  **Calcule o Número Base:** Se a regra for um número, use-o. Se a regra for 'Todos', o número base (`calculo_base`) é 10.
 
-    **ETAPA 2: CÁLCULO PASSO A PASSO (Usando apenas o conhecimento filtrado)**
-    1.  Identifique a população do turno.
-    2.  Busque a Regra Base para a Divisão '{divisao}' e Risco '{risco}'.
-    3.  Calcule o Número Base. Se a regra for 'Todos', o número base é 10.
-    4.  **REGRA DE LIMITE:** Se a população for <= 10, o `total_turno` é o **menor valor** entre o `calculo_base` e a `populacao_do_turno`. O acréscimo é 0.
-    5.  **CÁLCULO DE ACRÉSCIMO (Apenas para população > 10):**
-        a.  Calcule o Excedente (`população_do_turno - 10`).
-        b.  Busque a Regra de Acréscimo para o Risco '{risco}'.
-        c.  Calcule o Acréscimo (`excedente / fator_de_risco`). **ARREDONDE QUALQUER RESULTADO DECIMAL PARA CIMA**.
-        d.  Some Base + Acréscimo para obter o total do turno.
+    **ETAPA 2: CÁLCULO DE ACRÉSCIMO (Apenas para população > 10)**
+    3.  **Busque a Regra de Acréscimo:** Encontre na Base de Conhecimento a regra geral de **acréscimo** para o Risco '{risco}'. Esta é a sua `regra_acrescimo_aplicada`.
+    4.  **Calcule o Acréscimo:** Calcule `(população_do_turno - 10) / fator_de_risco`. **ARREDONDE QUALQUER RESULTADO DECIMAL PARA CIMA**.
+    
+    **ETAPA 3: CÁLCULO FINAL DO TURNO**
+    5.  **Regra de Limite:** Se a população for <= 10, o `total_turno` é o **menor valor** entre o `calculo_base` e a `populacao_do_turno`. O acréscimo é 0 e a regra de acréscimo é 'Não aplicável'.
+    6.  **Soma Total:** Se a população for > 10, o `total_turno` é a soma de `calculo_base` + `calculo_acrescimo`.
 
-    **ANÁLISE DE ERROS COMUNS (Preste Atenção!):**
-    - **ERRO COMUM DE ARREDONDAMENTO:** Um cálculo de `11 / 10` resulta em `1.1`. **NÃO ARREDONDE PARA BAIXO (1)**. O correto é **SEMPRE ARREDONDAR PARA CIMA (2)**, pois qualquer fração de um grupo de pessoas exige um brigadista completo.
-    - **EXEMPLO DE ERRO:** População 21, Risco Alto. Excedente = 11. Acréscimo = 11/10 = 1.1. **Cálculo ERRADO do acréscimo: 1**. **Cálculo CORRETO do acréscimo: 2**. Total CORRETO do turno: 10 + 2 = 12.
+    **ANÁLISE DE ERROS COMUNS:**
+    - **ERRO DE REGRA:** NÃO confunda a "Regra Base" (para até 10 pessoas) com a "Regra de Acréscimo" (para mais de 10 pessoas). Elas são duas regras diferentes e devem ser buscadas e citadas separadamente.
+    - **ERRO DE ARREDONDAMENTO:** Lembre-se, 1.1 vira 2.
 
-    **Formato de Saída (JSON ESTRITO OBRIGATÓRIO):**
+    **Formato de Saída (JSON ESTRITO OBRIGOTÓRIO):**
     Após realizar o raciocínio para TODOS os turnos, compile os resultados APENAS no seguinte formato JSON.
 
     ```json
@@ -70,9 +65,9 @@ def get_brigade_calculation_prompt(ia_context: dict, knowledge_context: str) -> 
         {{
           "turno": 1,
           "populacao": <população_do_turno_1>,
-          "regra_base_aplicada": "A regra da Base de Conhecimento que você usou.",
+          "regra_base_aplicada": "A regra da Base de Conhecimento específica para a população base (até 10 pessoas).",
           "calculo_base": <numero_base_brigadistas>,
-          "regra_acrescimo_aplicada": "A regra de acréscimo, ou 'Não aplicável'.",
+          "regra_acrescimo_aplicada": "A regra da Base de Conhecimento geral para o acréscimo, ou 'Não aplicável'.",
           "calculo_acrescimo": <numero_adicional_brigadistas>,
           "total_turno": <total_brigadistas_no_turno>
         }}
