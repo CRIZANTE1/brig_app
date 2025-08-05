@@ -46,7 +46,7 @@ class RAGAnalyzer:
         try:
             api_key = st.secrets["general"]["GOOGLE_API_KEY"]
             genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-1.5-flash-latest')
+            self.model = genai.GenerativeModel('gemini-2.5-pro')
         except Exception as e:
             st.error(f"Falha ao configurar o modelo Gemini: {e}")
             st.stop()
