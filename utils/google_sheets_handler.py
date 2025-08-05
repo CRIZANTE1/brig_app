@@ -52,7 +52,6 @@ def get_sheet_data_as_df(_gspread_client, sheet_id: str, sheet_name: str) -> pd.
         return pd.DataFrame()
 
 
-# --- Classe Handler ---
 
 class GoogleSheetsHandler:
     """
@@ -85,32 +84,28 @@ class GoogleSheetsHandler:
         return []
 
     def get_company_info(self, company_name: str) -> dict | None:
-        """Busca os dados de identificação de uma empresa pelo nome."""
         empresas_df = self.get_data_as_df(EMPRESAS_SHEET)
-        if empresas_df.empty or 'Razao_Social' not in empresas_df.columns:
-            return None
+        if empresas_df.empty or 'Razao_Social' not in empresas_df.columns: return None
         
         company_data = empresas_df[empresas_df['Razao_Social'] == company_name]
+        
         if not company_data.empty:
             return company_data.iloc[0].to_dict()
         return None
 
     def get_calculation_data(self, company_name: str) -> dict | None:
-        """Busca os dados de cálculo para uma empresa específica pelo nome."""
         empresas_df = self.get_data_as_df(EMPRESAS_SHEET)
         dados_df = self.get_data_as_df(DADOS_CALCULO_SHEET)
 
-        if empresas_df.empty or dados_df.empty or 'Razao_Social' not in empresas_df.columns:
-            return None
+        if empresas_df.empty or dados_df.empty or 'Razao_Social' not in empresas_df.columns: return None
 
         id_empresa_series = empresas_df.loc[empresas_df['Razao_Social'] == company_name, 'ID_Empresa']
-        if id_empresa_series.empty:
-            return None
         
-        id_empresa = id_empresa_series.iloc[0]
-        company_data = dados_df[dados_df['ID_Empresa'] == id_empresa]
-        if not company_data.empty:
-            return company_data.iloc[0].to_dict()
+        if not id_empresa_series.empty:
+            id_empresa = id_empresa_series.iloc[0]
+            company_data = dados_df[dados_df['ID_Empresa'] == id_empresa]
+            if not company_data.empty:
+                return company_data.iloc[0].to_dict()
         return None
 
     def get_brigadistas_list(self, company_name: str) -> pd.DataFrame:
