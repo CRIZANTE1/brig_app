@@ -1,9 +1,10 @@
+# app.py
+
 import streamlit as st
 from utils.google_sheets_handler import GoogleSheetsHandler
 from IA.ai_operations import AIOperations
 from about import show_about_page
 from auth.login_page import show_login_page, show_logout_button
-
 from auth.auth_utils import get_user_display_name 
 from pages import calculator_page
 
@@ -38,9 +39,10 @@ def main():
     selected_page_function = page_options[selected_page_name]
     
     if selected_page_name == "Cálculo de Brigadistas":
-        # A página da calculadora agora buscará o e-mail quando precisar.
+        # A chamada está correta, passando os dois handlers.
         selected_page_function(handler, ai_operator)
     else:
+        # A página "Sobre" não precisa de argumentos.
         selected_page_function()
 
 if __name__ == "__main__":
