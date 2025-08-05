@@ -1,29 +1,32 @@
-
 import streamlit as st
 from utils.calculator import calculate_total_brigade, get_table_divisions
 from utils.google_sheets_handler import GoogleSheetsHandler
 from IA.ai_operations import AIOperations
 from IA.prompts import get_brigade_analysis_prompt
 
-# Note que a importação de 'auth.auth_utils' foi removida daqui.
-
 def show_page(handler: GoogleSheetsHandler, ai_operator: AIOperations, user_email: str):
     """
     Desenha e gerencia toda a interface e lógica da página da calculadora.
-    Recebe o email do usuário como um argumento para ser usado ao salvar os dados.
+    Lê a lista de empresas do st.session_state.
     """
     st.title("Cálculo e Gestão de Brigada de Incêndio")
     
-    # --- Carregamento de Dados da Planilha ---
+    # --- Carregamento de Dados da Sessão ---
     st.sidebar.header("Seleção da Empresa")
-    company_list = handler.get_company_list()
+    
+    # Lê a lista de empresas diretamente do session_state, que foi carregada pelo app.py
+    company_list = st.session_state.get('company_list', [])
+
+    # Barreira de segurança: se a lista de empresas não estiver na sessão, exibe um erro.
     if not company_list:
-        st.warning("Nenhuma empresa encontrada na aba 'Empresas' da planilha.")
+        st.error("Falha ao carregar a lista de empresas da sessão.")
+        st.warning("Retorne à página principal ou recarregue a aplicação. Se o erro persistir, verifique a conexão com a planilha Google Sheets.")
         return
 
     selected_company = st.sidebar.selectbox("Selecione a Empresa para Calcular", company_list, key="company_selector")
 
     if selected_company:
+        # O botão agora apenas carrega os dados específicos da empresa selecionada
         if st.sidebar.button("Carregar Dados da Empresa"):
             with st.spinner(f"Carregando dados para {selected_company}..."):
                 st.session_state.sheet_data = handler.get_calculation_data(selected_company)
@@ -101,7 +104,6 @@ def show_page(handler: GoogleSheetsHandler, ai_operator: AIOperations, user_emai
             empresas_df = handler.get_data_as_df("Empresas")
             id_empresa = empresas_df.loc[empresas_df['Razao_Social'] == inputs['company'], 'ID_Empresa'].iloc[0]
             
-            # A variável 'user_email' agora vem diretamente dos argumentos da função show_page
             data_to_save = {
                 "id_empresa": id_empresa, 
                 "usuario": user_email, 
