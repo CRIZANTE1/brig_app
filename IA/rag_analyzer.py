@@ -61,45 +61,22 @@ class RAGAnalyzer:
         # Chama a função global cacheada, passando os argumentos "hashable"
         self.rag_df, self.rag_embeddings = load_and_embed_rag_base(gspread_client, rag_sheet_id)
 
-    def _find_relevant_chunks(self, query_text: str, divisao: str, risco: str, top_k: int = 5) -> pd.DataFrame:
-        """
-        Encontra as regras mais relevantes usando uma abordagem HÍBRIDA:
-        1. Pré-filtra por metadados (Divisão, Risco).
-        2. Realiza a busca semântica apenas nos resultados pré-filtrados.
-        """
+    def _find_relevant_chunks(self, query_text: str, top_k: int = 5) -> pd.DataFrame:
+        """Encontra as regras mais relevantes na base de conhecimento usando busca semântica."""
         if self.rag_df.empty or self.rag_embeddings is None or self.rag_embeddings.size == 0:
             return pd.DataFrame()
-        
-  
-        filtered_df = self.rag_df.copy()
-
-        filtered_df = filtered_df[
-            filtered_df['question'].str.contains(divisao, case=False) | 
-            filtered_df['question'].str.contains("regra de acréscimo", case=False)
-        ]
-        
-        if filtered_df.empty:
-            return pd.DataFrame()
-
-        # Pega os embeddings correspondentes aos dados filtrados
-        filtered_indices = filtered_df.index
-        filtered_embeddings = self.rag_embeddings[filtered_indices]
-        # ---------------------------------------------
-        
         try:
-            # --- ETAPA 2: BUSCA SEMÂNTICA NO SUBCONJUNTO ---
-            query_embedding_result = genai.embed_content(model='models/text-embedding-004', content=[query_text], task_type="RETRIEVAL_QUERY")
+            query_embedding_result = genai.embed_content(
+                model='models/text-embedding-004',
+                content=[query_text],
+                task_type="RETRIEVAL_QUERY"
+            )
             query_embedding = np.array(query_embedding_result['embedding'])
-            similarities = cosine_similarity(query_embedding, filtered_embeddings)[0]
-            
-            # Ajusta o top_k para não ser maior que o número de resultados filtrados
-            actual_top_k = min(top_k, len(filtered_df))
-            top_k_indices_in_filtered = similarities.argsort()[-actual_top_k:][::-1]
-            
-            # Retorna as linhas do DataFrame filtrado original
-            return filtered_df.iloc[top_k_indices_in_filtered]
+            similarities = cosine_similarity(query_embedding, self.rag_embeddings)[0]
+            top_k_indices = similarities.argsort()[-top_k:][::-1]
+            return self.rag_df.iloc[top_k_indices]
         except Exception as e:
-            st.warning(f"Erro durante a busca semântica: {e}")
+            st.warning(f"Erro durante a busca semântica na base de conhecimento: {e}")
             return pd.DataFrame()
 
     def calculate_brigade_with_rag(self, ia_context: dict) -> dict | None:
