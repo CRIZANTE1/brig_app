@@ -3,7 +3,6 @@ from utils.calculator import calculate_total_brigade, get_table_divisions
 from utils.google_sheets_handler import GoogleSheetsHandler
 from IA.ai_operations import AIOperations
 from IA.prompts import get_brigade_analysis_prompt
-from auth.auth_utils import get_user_email
 
 def show_page(handler: GoogleSheetsHandler, ai_operator: AIOperations):
     """
