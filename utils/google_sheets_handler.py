@@ -4,91 +4,107 @@ import pandas as pd
 from datetime import datetime
 from google.oauth2.service_account import Credentials
 
-# Nomes das abas
+# --- Nomes das Abas ---
+# Manter como constantes globais facilita a manutenção.
 EMPRESAS_SHEET = "Empresas"
 DADOS_CALCULO_SHEET = "Dados_Calculo"
 BRIGADISTAS_SHEET = "Brigadistas_Treinados"
 RESULTADOS_SHEET = "Resultados_Salvos"
 ADMIN_SHEET_NAME = "adm"
 
-# Usamos cache para a conexão, para não re-autenticar a cada interação
+
+# --- Funções Globais com Cache ---
+
 @st.cache_resource
 def connect_to_gsheets():
     """
-    Conecta ao Google Sheets usando as credenciais do st.secrets (método manual).
+    Conecta ao Google Sheets usando as credenciais do st.secrets e retorna o cliente gspread.
+    Usa @st.cache_resource porque a conexão é um "recurso" que não deve ser recriado a cada interação.
     """
     try:
-        # Define os escopos de permissão necessários
         scopes = ['https://www.googleapis.com/auth/spreadsheets']
-        
-        # Pega as credenciais diretamente do secrets.toml, da seção [connections.gsheets]
         creds_dict = st.secrets["connections"]["gsheets"]
-        
-        # Cria o objeto de credenciais a partir do dicionário
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        
-        # Autoriza e retorna o cliente gspread
         return gspread.authorize(creds)
     except Exception as e:
-        st.error(f"Falha ao conectar com o Google Sheets. Verifique a configuração em .streamlit/secrets.toml: {e}")
-        st.stop() # Para a execução do app se a conexão falhar
+        st.error(f"Falha fatal ao conectar com o Google Sheets: {e}. Verifique a configuração em .streamlit/secrets.toml.")
+        st.stop()
+
+
+@st.cache_data(ttl=300) # Cache de 5 minutos para os dados
+def get_sheet_data_as_df(_gspread_client, spreadsheet_id: str, sheet_name: str) -> pd.DataFrame:
+    """
+    Busca dados de uma aba específica e retorna como um DataFrame pandas.
+    Esta função é global para que o @st.cache_data funcione corretamente, pois seus
+    argumentos são "hashable".
+    """
+    try:
+        spreadsheet = _gspread_client.open_by_key(spreadsheet_id)
+        worksheet = spreadsheet.worksheet(sheet_name)
+        # get_all_records é mais robusto para criar DataFrames
+        records = worksheet.get_all_records()
+        df = pd.DataFrame(records)
+        return df.dropna(how="all") # Remove linhas que estão completamente vazias
+    except gspread.exceptions.WorksheetNotFound:
+        st.error(f"Aba '{sheet_name}' não encontrada na planilha. Por favor, verifique o nome da aba.")
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Erro ao ler dados da aba '{sheet_name}': {e}")
+        return pd.DataFrame()
+
+
+# --- Classe Handler ---
 
 class GoogleSheetsHandler:
+    """
+    Uma classe que orquestra as operações com o Google Sheets,
+    utilizando as funções globais cacheadas para eficiência.
+    """
     def __init__(self):
-        """Inicializa o handler conectando ao Google Sheets."""
+        """Inicializa o handler obtendo a conexão cacheada e o ID da planilha."""
         self.client = connect_to_gsheets()
         try:
-            # Abre a planilha pelo ID fornecido nos secrets
-            self.spreadsheet = self.client.open_by_key(st.secrets["connections"]["gsheets"]["spreadsheet"])
-        except gspread.exceptions.SpreadsheetNotFound:
-            st.error("Planilha não encontrada! Verifique o ID da planilha ('spreadsheet') em secrets.toml.")
-            st.stop()
-        except Exception as e:
-            st.error(f"Erro ao abrir a planilha: {e}")
+            self.spreadsheet_id = st.secrets["connections"]["gsheets"]["spreadsheet"]
+        except KeyError:
+            st.error("O ID da planilha ('spreadsheet') não foi encontrado em [connections.gsheets] nos seus secrets.")
             st.stop()
 
-    @st.cache_data(ttl=300) # Cache para os dados por 5 minutos
     def get_data_as_df(self, sheet_name: str) -> pd.DataFrame:
-        """Busca dados de uma aba e retorna como DataFrame pandas."""
-        try:
-            worksheet = self.spreadsheet.worksheet(sheet_name)
-            records = worksheet.get_all_records() # get_all_records() é ótimo para converter para DF
-            df = pd.DataFrame(records)
-            return df.dropna(how="all")
-        except gspread.exceptions.WorksheetNotFound:
-            st.error(f"Aba '{sheet_name}' não encontrada na planilha. Verifique o nome da aba.")
-            return pd.DataFrame()
-        except Exception as e:
-            st.error(f"Erro ao ler a aba '{sheet_name}': {e}")
-            return pd.DataFrame()
+        """
+        Método de conveniência que chama a função global cacheada para obter os dados.
+        """
+        # Passa a conexão (self.client) e o ID da planilha para a função cacheada.
+        return get_sheet_data_as_df(self.client, self.spreadsheet_id, sheet_name)
 
     def get_company_list(self) -> list:
-        """Retorna uma lista de Razão Social da aba Empresas."""
+        """Retorna uma lista com a Razão Social de todas as empresas."""
         df = self.get_data_as_df(EMPRESAS_SHEET)
         if not df.empty and 'Razao_Social' in df.columns:
             return df['Razao_Social'].tolist()
         return []
 
     def get_calculation_data(self, company_name: str) -> dict | None:
-        """Busca os dados de cálculo para uma empresa específica."""
+        """Busca os dados de cálculo para uma empresa específica pelo nome."""
         empresas_df = self.get_data_as_df(EMPRESAS_SHEET)
         dados_df = self.get_data_as_df(DADOS_CALCULO_SHEET)
 
         if empresas_df.empty or dados_df.empty or 'Razao_Social' not in empresas_df.columns:
             return None
 
+        # Filtra para encontrar o ID da empresa
         id_empresa_series = empresas_df.loc[empresas_df['Razao_Social'] == company_name, 'ID_Empresa']
         if id_empresa_series.empty:
             return None
         
         id_empresa = id_empresa_series.iloc[0]
+        # Filtra os dados de cálculo usando o ID encontrado
         company_data = dados_df[dados_df['ID_Empresa'] == id_empresa]
         if not company_data.empty:
             return company_data.iloc[0].to_dict()
         return None
 
     def get_brigadistas_list(self, company_name: str) -> pd.DataFrame:
-        """Retorna a lista de brigadistas para uma empresa específica."""
+        """Retorna um DataFrame com a lista de brigadistas de uma empresa específica."""
         empresas_df = self.get_data_as_df(EMPRESAS_SHEET)
         brigadistas_df = self.get_data_as_df(BRIGADISTAS_SHEET)
 
@@ -103,18 +119,25 @@ class GoogleSheetsHandler:
         return brigadistas_df[brigadistas_df['ID_Empresa'] == id_empresa]
 
     def save_calculation_result(self, data: dict):
-        """Salva uma linha com o resultado do cálculo na aba de resultados."""
+        """Salva uma nova linha com o resultado do cálculo na aba de resultados."""
         try:
-            worksheet = self.spreadsheet.worksheet(RESULTADOS_SHEET)
+            spreadsheet = self.client.open_by_key(self.spreadsheet_id)
+            worksheet = spreadsheet.worksheet(RESULTADOS_SHEET)
+            # Monta a linha na ordem correta das colunas esperadas
             data_row = [
-                data.get("id_empresa"), datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                data.get("usuario"), data.get("divisao"), data.get("risco"),
-                str(data.get("populacao_turnos")), data.get("total_calculado"),
+                data.get("id_empresa"),
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                data.get("usuario"),
+                data.get("divisao"),
+                data.get("risco"),
+                str(data.get("populacao_turnos")),
+                data.get("total_calculado"),
                 str(data.get("detalhe_turnos"))
             ]
+            # Adiciona a linha ao final da planilha
             worksheet.append_row(data_row, value_input_option='USER_ENTERED')
-            st.success("Resultado salvo com sucesso na planilha!")
+            st.success("Resultado do cálculo salvo com sucesso na planilha!")
         except gspread.exceptions.WorksheetNotFound:
-            st.error(f"Aba '{RESULTADOS_SHEET}' não encontrada. Crie-a para salvar os resultados.")
+            st.error(f"Aba de resultados ('{RESULTADOS_SHEET}') não foi encontrada. Por favor, crie-a para salvar o histórico.")
         except Exception as e:
-            st.error(f"Erro ao salvar o resultado: {e}")
+            st.error(f"Ocorreu um erro ao tentar salvar o resultado na planilha: {e}")
