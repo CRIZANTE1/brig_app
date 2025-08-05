@@ -28,7 +28,6 @@ def get_brigade_calculation_prompt(ia_context: dict, knowledge_context: str) -> 
     risco = ia_context.get("risk")
     populations = ia_context.get("populations", [])
 
-    # Exemplo de cálculo para guiar a IA (Few-shot Prompting)
     example_calculation_logic = """
     Exemplo de Raciocínio para um turno com 22 pessoas, Divisão M-2, Risco Alto:
     1.  **Validação de Contexto:** O cenário é para Divisão 'M-2'. Vou ignorar todas as regras da Base de Conhecimento que se aplicam a outras divisões (como 'F-3', 'D-2', etc.). Vou focar apenas nas regras para 'M-2' e nas regras gerais de acréscimo.
