@@ -60,9 +60,7 @@ def show_brigade_management_page(handler: GoogleSheetsHandler, rag_analyzer: RAG
     elif not is_date_valid and validity_date:
         st.error("Formato de data inválido. Por favor, use DD/MM/AAAA.")
 
-# ==============================================================================
-# LÓGICA DA PÁGINA DA CALCULADORA
-# ==============================================================================
+
 
 def show_calculator_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer, user_email: str, company_list: list):
     """
@@ -157,22 +155,29 @@ def show_calculator_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer
         
         if st.button("Salvar Cálculo na Planilha"):
             empresas_df = handler.get_data_as_df("Empresas")
-            # Usa a Razao_Social que está nos dados da instalação para encontrar o ID
+            instalacao = st.session_state.last_result.get("dados_da_instalacao", {})
             razao_social = instalacao.get("razao_social")
-            id_empresa = empresas_df.loc[empresas_df['Razao_Social'] == razao_social, 'ID_Empresa'].iloc[0]
-            
-            # Extrai os dados do JSON retornado pela IA para salvar
-            calculo_info = st.session_state.last_result.get("calculo_por_turno", [])
-            populacoes = [t.get("populacao") for t in calculo_info]
-            detalhes_turnos = [t.get("total_turno") for t in calculo_info]
 
-            data_to_save = { 
-                "id_empresa": id_empresa, 
-                "usuario": user_email, 
-                "divisao": inputs.get("division"), 
-                "risco": inputs.get("risk"), 
-                "populacao_turnos": str(populacoes),
-                "total_calculado": resumo.get("total_geral_brigadistas"), 
-                "detalhe_turnos": str(detalhes_turnos)
-            }
-            handler.save_calculation_result(data_to_save)
+            id_empresa_series = empresas_df.loc[empresas_df['Razao_Social'] == razao_social, 'ID_Empresa']
+            
+            if not id_empresa_series.empty:
+                id_empresa = id_empresa_series.iloc[0]
+                
+                # O resto da lógica de salvar só executa se o ID foi encontrado
+                calculo_info = st.session_state.last_result.get("calculo_por_turno", [])
+                populacoes = [t.get("populacao") for t in calculo_info]
+                detalhes_turnos = [t.get("total_turno") for t in calculo_info]
+                resumo = st.session_state.last_result.get("resumo_final", {})
+
+                data_to_save = { 
+                    "id_empresa": id_empresa, 
+                    "usuario": user_email, 
+                    "divisao": inputs.get("division"), 
+                    "risco": inputs.get("risk"), 
+                    "populacao_turnos": str(populacoes),
+                    "total_calculado": resumo.get("total_geral_brigadistas"), 
+                    "detalhe_turnos": str(detalhes_turnos)
+                }
+                handler.save_calculation_result(data_to_save)
+            else:
+                st.error(f"Não foi possível encontrar o ID da empresa para a Razão Social '{razao_social}' na sua planilha. O resultado não foi salvo.")
