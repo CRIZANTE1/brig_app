@@ -2,6 +2,7 @@ import streamlit as st
 from utils.google_sheets_handler import GoogleSheetsHandler
 from IA.rag_analyzer import RAGAnalyzer
 import re
+import json
 
 
 
