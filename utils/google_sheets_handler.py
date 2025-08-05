@@ -5,13 +5,13 @@ import pandas as pd
 from datetime import datetime
 from google.oauth2.service_account import Credentials
 
-
 EMPRESAS_SHEET = "Empresas"
 DADOS_CALCULO_SHEET = "Dados_Calculo"
 BRIGADISTAS_SHEET = "Brigadistas_Treinados"
 RESULTADOS_SHEET = "Resultados_Salvos"
 
 
+# --- Funções Globais com Cache ---
 
 @st.cache_resource
 def connect_to_gsheets():
@@ -83,6 +83,17 @@ class GoogleSheetsHandler:
         if not df.empty and 'Razao_Social' in df.columns:
             return df['Razao_Social'].tolist()
         return []
+
+    def get_company_info(self, company_name: str) -> dict | None:
+        """Busca os dados de identificação de uma empresa pelo nome."""
+        empresas_df = self.get_data_as_df(EMPRESAS_SHEET)
+        if empresas_df.empty or 'Razao_Social' not in empresas_df.columns:
+            return None
+        
+        company_data = empresas_df[empresas_df['Razao_Social'] == company_name]
+        if not company_data.empty:
+            return company_data.iloc[0].to_dict()
+        return None
 
     def get_calculation_data(self, company_name: str) -> dict | None:
         """Busca os dados de cálculo para uma empresa específica pelo nome."""
