@@ -152,6 +152,25 @@ def show_calculator_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer
 
         with st.expander("Ver Detalhamento do Cálculo da IA (Passo a Passo)"):
             st.json(result_json.get("calculo_por_turno", []))
+
+        st.subheader("3. Relatório Técnico")
+        if st.button("Gerar Relatório Completo com IA"):
+            with st.spinner("IA está redigindo o relatório técnico..."):
+                # Chama o novo método do RAGAnalyzer
+                report_text = rag_analyzer.generate_full_report(result_json)
+                st.session_state.generated_report = report_text # Salva na sessão
+        
+        # Exibe o relatório se ele já foi gerado
+        if 'generated_report' in st.session_state:
+            with st.container(border=True):
+                st.markdown(st.session_state.generated_report)
+                # Adiciona um botão de download para o relatório
+                st.download_button(
+                    label="Baixar Relatório (.md)",
+                    data=st.session_state.generated_report,
+                    file_name=f"Relatorio_Brigada_{inputs['company_info'].get('Imovel', 'local')}.md",
+                    mime="text/markdown",
+                )
         
         if st.button("Salvar Cálculo na Planilha"):
             empresas_df = handler.get_data_as_df("Empresas")
