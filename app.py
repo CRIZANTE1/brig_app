@@ -1,11 +1,9 @@
-# app.py
 import streamlit as st
 from utils.google_sheets_handler import GoogleSheetsHandler
 from IA.rag_analyzer import RAGAnalyzer
 from about import show_about_page
 from auth.login_page import show_login_page, show_logout_button
 from auth.auth_utils import get_user_display_name, get_user_email
-# ADICIONE/CORRIJA ESTA LINHA DE IMPORTAÇÃO
 from operations import front
 
 st.set_page_config(page_title="Cálculo de Brigadistas", page_icon="🔥", layout="wide")
@@ -14,18 +12,18 @@ st.set_page_config(page_title="Cálculo de Brigadistas", page_icon="🔥", layou
 def initialize_services():
     """Inicializa e retorna os handlers de serviços (Sheets, IA)."""
     handler = GoogleSheetsHandler()
+    
     try:
         rag_sheet_id = st.secrets["app_settings"]["rag_sheet_id"]
     except KeyError:
         st.error("Configuração 'app_settings.rag_sheet_id' não encontrada no secrets.toml.")
         st.stop()
-    rag_analyzer = RAGAnalyzer(handler, rag_sheet_id)
+
+    rag_analyzer = RAGAnalyzer(handler.client, rag_sheet_id)
+    
     return handler, rag_analyzer
 
 def main():
-    """
-    Função principal que orquestra o aplicativo.
-    """
     if not show_login_page():
         return
 
@@ -34,7 +32,7 @@ def main():
 
     handler, rag_analyzer = initialize_services()
 
-    # Raio-X de Depuração (pode ser comentado/removido em produção)
+    # Raio-X de Depuração
     with st.sidebar.expander("Raio-X de Depuração"):
         st.write("**Status da Conexão:**")
         try:
@@ -50,7 +48,6 @@ def main():
     company_list = handler.get_company_list()
     
     st.sidebar.title("Navegação")
-    # Agora que 'front' está importado, este dicionário funcionará
     page_options = {
         "Cálculo de Brigadistas": front.show_calculator_page,
         "Gestão de Brigadistas": front.show_brigade_management_page,
