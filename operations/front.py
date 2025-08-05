@@ -1,22 +1,27 @@
+
 import streamlit as st
 from utils.google_sheets_handler import GoogleSheetsHandler
 from IA.rag_analyzer import RAGAnalyzer
 import re
-import json
+from operations.pdf_generator import generate_pdf_report
 
 
 
 def is_valid_date_format(date_string: str) -> bool:
-    """Verifica se a string de data está no formato DD/MM/AAAA."""
+    """
+    Verifica se a string de data fornecida está no formato DD/MM/AAAA.
+    Retorna True se o formato for válido, False caso contrário.
+    """
     if not isinstance(date_string, str):
         return False
+    # Expressão regular para validar o formato DD/MM/AAAA
     pattern = re.compile(r"^\d{2}/\d{2}/\d{4}$")
     return pattern.match(date_string) is not None
+
 
 def get_table_divisions():
     """Retorna uma lista fixa de divisões para o selectbox."""
     return ["M-2", "D-2", "I-1", "I-2", "I-3", "J-4", "C-1", "C-2"]
-
 
 
 def show_brigade_management_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer, company_list: list):
@@ -33,9 +38,20 @@ def show_brigade_management_page(handler: GoogleSheetsHandler, rag_analyzer: RAG
     
     with st.container(border=True):
         st.subheader("1. Selecione a Empresa e o Atestado")
-        selected_company = st.selectbox("Para qual empresa este atestado se aplica?", company_list, key="mgmt_company_selector")
-        validity_date = st.text_input("Data de Validade do Treinamento (DD/MM/AAAA)", placeholder="Ex: 31/12/2025")
-        uploaded_file = st.file_uploader("Carregue o atestado de brigada (PDF)", type="pdf", key="pdf_uploader")
+        selected_company = st.selectbox(
+            "Para qual empresa este atestado se aplica?", 
+            company_list, 
+            key="mgmt_company_selector"
+        )
+        validity_date = st.text_input(
+            "Data de Validade do Treinamento (DD/MM/AAAA)", 
+            placeholder="Ex: 31/12/2025"
+        )
+        uploaded_file = st.file_uploader(
+            "Carregue o atestado de brigada (PDF)", 
+            type="pdf", 
+            key="pdf_uploader"
+        )
 
     is_date_valid = is_valid_date_format(validity_date)
     
@@ -60,7 +76,6 @@ def show_brigade_management_page(handler: GoogleSheetsHandler, rag_analyzer: RAG
                 st.json(extracted_data)
     elif not is_date_valid and validity_date:
         st.error("Formato de data inválido. Por favor, use DD/MM/AAAA.")
-
 
 
 def show_calculator_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer, user_email: str, company_list: list):
@@ -129,7 +144,12 @@ def show_calculator_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer
         
         if calculation_result:
             st.session_state.last_result = calculation_result
-            st.session_state.last_inputs = { "company_info": company_info }
+            st.session_state.last_inputs = { 
+                "company_info": company_info,
+                "division": division, 
+                "risk": risk_level, 
+                "populations": turn_populations
+            }
         else:
             st.session_state.last_result = None
             st.error("Não foi possível obter o resultado do cálculo da IA.")
@@ -151,53 +171,45 @@ def show_calculator_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer
             col1.metric("Total de Brigadistas (Soma dos Turnos)", total_geral)
             col2.metric("Efetivo Mínimo por Turno (Maior Turno)", maior_turno)
 
-        with st.expander("Ver Detalhamento do Cálculo da IA (Passo a Passo)"):
-            st.json(result_json.get("calculo_por_turno", []))
-
-        st.subheader("3. Relatório Técnico")
-        if st.button("Gerar Relatório Completo com IA"):
-            with st.spinner("IA está redigindo o relatório técnico..."):
-                # Chama o novo método do RAGAnalyzer
-                report_text = rag_analyzer.generate_full_report(result_json)
-                st.session_state.generated_report = report_text # Salva na sessão
+        with st.expander("Ver Detalhamento do Cálculo da IA (JSON)"):
+            st.json(result_json)
         
-        # Exibe o relatório se ele já foi gerado
-        if 'generated_report' in st.session_state:
-            with st.container(border=True):
-                st.markdown(st.session_state.generated_report)
-                # Adiciona um botão de download para o relatório
+        st.subheader("3. Ações e Relatórios")
+        col_save, col_pdf = st.columns(2)
+
+        with col_save:
+            if st.button("Salvar Cálculo na Planilha", use_container_width=True):
+                empresas_df = handler.get_data_as_df("Empresas")
+                razao_social = instalacao.get("razao_social")
+
+                id_empresa_series = empresas_df.loc[empresas_df['Razao_Social'] == razao_social, 'ID_Empresa']
+                if not id_empresa_series.empty:
+                    id_empresa = id_empresa_series.iloc[0]
+                    
+                    calculo_info = result_json.get("calculo_por_turno", [])
+                    populacoes = [t.get("populacao") for t in calculo_info]
+                    detalhes_turnos = [t.get("total_turno") for t in calculo_info]
+
+                    data_to_save = { 
+                        "id_empresa": id_empresa, 
+                        "usuario": user_email, 
+                        "divisao": inputs.get("division"), 
+                        "risco": inputs.get("risk"), 
+                        "populacao_turnos": str(populacoes),
+                        "total_calculado": resumo.get("total_geral_brigadistas"), 
+                        "detalhe_turnos": str(detalhes_turnos)
+                    }
+                    handler.save_calculation_result(data_to_save)
+                else:
+                    st.error(f"Não foi possível encontrar o ID da empresa para '{razao_social}'. Resultado não salvo.")
+        
+        with col_pdf:
+            pdf_bytes = generate_pdf_report(result_json)
+            if pdf_bytes:
                 st.download_button(
-                    label="Baixar Relatório (.md)",
-                    data=st.session_state.generated_report,
-                    file_name=f"Relatorio_Brigada_{inputs['company_info'].get('Imovel', 'local')}.md",
-                    mime="text/markdown",
+                    label="Baixar Relatório em PDF",
+                    data=pdf_bytes,
+                    file_name=f"Relatorio_Brigada_{instalacao.get('imovel', 'local').replace(' ', '_')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
                 )
-        
-        if st.button("Salvar Cálculo na Planilha"):
-            empresas_df = handler.get_data_as_df("Empresas")
-            instalacao = st.session_state.last_result.get("dados_da_instalacao", {})
-            razao_social = instalacao.get("razao_social")
-
-            id_empresa_series = empresas_df.loc[empresas_df['Razao_Social'] == razao_social, 'ID_Empresa']
-            
-            if not id_empresa_series.empty:
-                id_empresa = id_empresa_series.iloc[0]
-                
-                # O resto da lógica de salvar só executa se o ID foi encontrado
-                calculo_info = st.session_state.last_result.get("calculo_por_turno", [])
-                populacoes = [t.get("populacao") for t in calculo_info]
-                detalhes_turnos = [t.get("total_turno") for t in calculo_info]
-                resumo = st.session_state.last_result.get("resumo_final", {})
-
-                data_to_save = { 
-                    "id_empresa": id_empresa, 
-                    "usuario": user_email, 
-                    "divisao": inputs.get("division"), 
-                    "risco": inputs.get("risk"), 
-                    "populacao_turnos": str(populacoes),
-                    "total_calculado": resumo.get("total_geral_brigadistas"), 
-                    "detalhe_turnos": str(detalhes_turnos)
-                }
-                handler.save_calculation_result(data_to_save)
-            else:
-                st.error(f"Não foi possível encontrar o ID da empresa para a Razão Social '{razao_social}' na sua planilha. O resultado não foi salvo.")
