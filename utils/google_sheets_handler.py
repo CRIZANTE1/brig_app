@@ -133,3 +133,27 @@ class GoogleSheetsHandler:
             st.error(f"Aba de resultados ('{RESULTADOS_SHEET}') não foi encontrada. Por favor, crie-a para salvar o histórico.")
         except Exception as e:
             st.error(f"Ocorreu um erro ao tentar salvar o resultado na planilha: {e}")
+
+    def add_brigadistas_to_sheet(self, id_empresa: str, nomes: list, validade: str):
+        """
+        Adiciona uma lista de novos brigadistas à aba 'Brigadistas_Treinados'.
+        """
+        try:
+            worksheet = self.spreadsheet.worksheet(BRIGADISTAS_SHEET)
+            
+            rows_to_add = []
+            for nome in nomes:
+                # Monta cada linha no formato esperado pela planilha
+                # Usamos um placeholder para o e-mail, que pode ser preenchido manualmente depois.
+                new_row = [id_empresa, nome.strip(), "email@naoinformado.com", validade]
+                rows_to_add.append(new_row)
+            
+            if rows_to_add:
+                # append_rows é mais eficiente para adicionar múltiplas linhas de uma vez
+                worksheet.append_rows(rows_to_add, value_input_option='USER_ENTERED')
+                st.success(f"{len(rows_to_add)} brigadistas foram adicionados com sucesso à planilha!")
+            else:
+                st.warning("Nenhum nome para adicionar.")
+
+        except Exception as e:
+            st.error(f"Ocorreu um erro ao tentar adicionar brigadistas à planilha: {e}")
