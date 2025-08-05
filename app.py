@@ -3,13 +3,14 @@ from utils.google_sheets_handler import GoogleSheetsHandler
 from IA.ai_operations import AIOperations
 from about import show_about_page
 from auth.login_page import show_login_page, show_logout_button
-from auth.auth_utils import is_user_authorized, get_user_display_name
+from auth.auth_utils import get_user_display_name, get_user_email
 from pages import calculator_page
 
 st.set_page_config(page_title="Cálculo de Brigadistas", page_icon="🔥", layout="wide")
 
 @st.cache_resource
 def initialize_services():
+    """Inicializa e retorna os handlers de serviços (Sheets, IA)."""
     handler = GoogleSheetsHandler()
     ai_operator = AIOperations()
     return handler, ai_operator
@@ -18,8 +19,6 @@ def main():
     """
     Função principal que orquestra o aplicativo.
     """
-    # **ALTERAÇÃO PRINCIPAL AQUI**
-    # Agora, o fluxo só continua se o usuário estiver logado E autorizado.
     if not show_login_page():
         return
 
@@ -38,7 +37,10 @@ def main():
     selected_page_function = page_options[selected_page_name]
     
     if selected_page_name == "Cálculo de Brigadistas":
-        selected_page_function(handler, ai_operator)
+        # Pega o e-mail do usuário aqui, no main
+        user_email = get_user_email()
+        # Passa os handlers E o e-mail para a função da página
+        selected_page_function(handler, ai_operator, user_email)
     else:
         selected_page_function()
 
