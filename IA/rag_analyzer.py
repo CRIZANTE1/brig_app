@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -6,22 +7,19 @@ import google.generativeai as genai
 import json
 from .prompts import get_pdf_extraction_prompt
 
-# A função agora recebe o sheet_id como argumento
-@st.cache_data(ttl=3600)
-def load_and_embed_rag_base(handler, rag_sheet_id: str) -> tuple[pd.DataFrame, np.ndarray | None]:
+
+def _load_and_embed_rag_base(handler, rag_sheet_id: str) -> tuple[pd.DataFrame, np.ndarray | None]:
     """
-    Carrega a planilha RAG pelo ID fornecido, gera embeddings e armazena em cache.
+    Carrega a planilha RAG, gera embeddings para a coluna 'question'.
     """
     if not rag_sheet_id or rag_sheet_id == "not_defined":
-        st.error("O ID da planilha RAG ('rag_sheet_id') não está definido nos secrets do aplicativo.")
+        st.error("O ID da planilha RAG ('rag_sheet_id') não está definido nos secrets.")
         return pd.DataFrame(), None
         
     try:
-        # Usa o handler para abrir a planilha pelo ID
-        spreadsheet = handler.client.open_by_key(rag_sheet_id)
-        worksheet = spreadsheet.worksheet("RAG_Knowledge_Base") # Assume que o nome da aba é este
-        
-        df = pd.DataFrame(worksheet.get_all_records())
+        # Reutiliza a função de leitura de dados que já é cacheada pelo handler.
+        # Passa o nome da aba diretamente.
+        df = handler.get_data_as_df(sheet_name="RAG_Knowledge_Base", rag_sheet_id=rag_sheet_id)
 
         if df.empty or "question" not in df.columns or "answer_chunk" not in df.columns:
             st.error("A aba 'RAG_Knowledge_Base' está vazia ou não contém as colunas 'question' e 'answer_chunk'.")
@@ -43,7 +41,10 @@ def load_and_embed_rag_base(handler, rag_sheet_id: str) -> tuple[pd.DataFrame, n
 
 class RAGAnalyzer:
     def __init__(self, handler, rag_sheet_id: str):
-        # Configura o modelo Gemini
+        """
+        Inicializa o analisador RAG, configurando o modelo Gemini e
+        carregando/indexando a base de conhecimento da planilha.
+        """
         try:
             api_key = st.secrets["general"]["GOOGLE_API_KEY"]
             genai.configure(api_key=api_key)
@@ -52,11 +53,11 @@ class RAGAnalyzer:
             st.error(f"Falha ao configurar o modelo Gemini: {e}")
             st.stop()
         
-        # Carrega e indexa a base de conhecimento RAG, passando o ID
-        self.rag_df, self.rag_embeddings = load_and_embed_rag_base(handler, rag_sheet_id)
+        # A chamada para carregar a base de conhecimento agora é um método interno
+        self.rag_df, self.rag_embeddings = _load_and_embed_rag_base(handler, rag_sheet_id)
 
     def _find_relevant_chunks(self, query_text: str, top_k: int = 3) -> pd.DataFrame:
-        """Encontra as regras mais relevantes na base de conhecimento."""
+        """Encontra as regras mais relevantes na base de conhecimento usando busca semântica."""
         if self.rag_df.empty or self.rag_embeddings is None or self.rag_embeddings.size == 0:
             return pd.DataFrame()
         try:
@@ -74,7 +75,7 @@ class RAGAnalyzer:
             return pd.DataFrame()
 
     def get_contextual_analysis(self, ia_context: dict) -> str:
-        """Gera uma análise contextual sobre o cálculo da brigada."""
+        """Gera uma análise contextual e fundamentada sobre o resultado do cálculo da brigada."""
         divisao = ia_context.get("division")
         risco = ia_context.get("risk")
         total_brigade = ia_context.get("total_brigade")
