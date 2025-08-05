@@ -1,8 +1,8 @@
-# IA/ai_operations.py
 
 import streamlit as st
 import google.generativeai as genai
 import logging
+from .prompts import get_pdf_extraction_prompt 
 
 class AIOperations:
     def __init__(self):
