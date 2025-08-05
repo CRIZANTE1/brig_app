@@ -17,49 +17,67 @@ def get_pdf_extraction_prompt() -> str:
     """
 
 
-def get_brigade_analysis_prompt(calc_data: dict, brigadistas_atuais: pd.DataFrame) -> str:
+def get_brigade_analysis_prompt(ia_context: dict, knowledge_context: str) -> str:
     """
-    Cria o prompt detalhado para ser enviado ao modelo de IA, agindo como um consultor.
+    Cria um prompt avançado para que a IA execute o cálculo da brigada
+    baseado na base de conhecimento e retorne um JSON estruturado.
     """
+    divisao = ia_context.get("division")
+    risco = ia_context.get("risk")
+    populations = ia_context.get("populations", [])
+
+    return f"""
+    **Persona:** Você é um Engenheiro de Segurança especialista em normas. Sua tarefa é calcular o número de brigadistas para múltiplos turnos, seguindo rigorosamente as regras da Base de Conhecimento.
+
+    **Cenário de Entrada:**
+    - Divisão da Planta: {divisao}
+    - Nível de Risco: {risco}
+    - População por Turno: {populations}
+
+    **Base de Conhecimento (Sua ÚNICA fonte de regras):**
+    ---
+    {knowledge_context}
+    ---
+
+    **Sua Tarefa (Raciocínio Passo a Passo Obrigatório):**
+    1.  **Analise cada turno individualmente.**
+    2.  Para cada turno, identifique a população.
+    3.  Busque na Base de Conhecimento a regra base para a população (geralmente até 10 pessoas).
+    4.  Se a população for maior que 10, busque na Base de Conhecimento a regra de acréscimo correspondente ao Nível de Risco. Calcule os brigadistas adicionais. Lembre-se de arredondar para cima qualquer fração (ex: 1.1 vira 2).
+    5.  Some o valor base com os adicionais para encontrar o total do turno.
+    6.  Repita para todos os turnos.
+    7.  Some os totais de cada turno para encontrar o `total_geral`.
+    8.  Identifique o maior valor entre os turnos para `maior_turno_necessidade`.
     
-    # Prepara uma representação textual da lista de brigadistas atuais
-    if not brigadistas_atuais.empty:
-        lista_brigadistas_str = brigadistas_atuais['Nome_Brigadista'].to_string(index=False)
-        num_brigadistas_atuais = len(brigadistas_atuais)
-    else:
-        lista_brigadistas_str = "Nenhum brigadista treinado registrado."
-        num_brigadistas_atuais = 0
+    **Formato de Saída (JSON ESTRITO):**
+    Retorne sua resposta APENAS no seguinte formato JSON. Não inclua nenhum texto antes ou depois do JSON.
 
-    # O prompt define a persona, o contexto e a tarefa da IA
-    prompt = f"""
-    **Persona:** Você é um consultor especialista em Segurança contra Incêndio e Emergências, com profundo conhecimento das normas brasileiras como a ABNT NBR 14276. Sua resposta deve ser técnica, clara e orientada para a ação.
-
-    **Contexto:** Você recebeu um cálculo de dimensionamento de brigada de incêndio e a lista de brigadistas atuais para uma planta. Sua tarefa é analisar esses dados e fornecer um relatório consultivo.
-
-    **Dados Recebidos:**
-    - Divisão da Planta: {calc_data.get("division")}
-    - Nível de Risco: {calc_data.get("risk")}
-    - Cálculo Mínimo pela Norma (Total): {calc_data.get("total_brigade")} brigadistas.
-    - Necessidade Mínima para o Turno Mais Crítico: {calc_data.get("maior_turno_necessidade")} brigadistas.
-    - Número de Brigadistas Atuais: {num_brigadistas_atuais}
-    - Lista de Brigadistas Atuais:
-    {lista_brigadistas_str}
-
-    **Sua Tarefa (Formato de Resposta Obrigatório):**
-    Com base nos dados fornecidos, gere um relatório em Markdown com as seguintes seções:
-
-    ### 1. Diagnóstico de Conformidade
-    Analise se o número de brigadistas atuais atende ao mínimo exigido pela norma. Seja direto: a planta está em conformidade ou há um déficit? Quantos brigadistas precisam ser treinados, se for o caso?
-
-    ### 2. Análise de Risco Qualitativa
-    Comente brevemente sobre os riscos específicos associados à Divisão '{calc_data.get("division")}' com Nível de Risco '{calc_data.get("risk")}'.
-
-    ### 3. Recomendação Estratégica
-    Sugira um número total de brigadistas ideal, incluindo uma margem de segurança (geralmente 10-20% acima do mínimo) para cobrir ausências (férias, doenças). Justifique essa margem.
-
-    ### 4. Plano de Ação Sugerido
-    Forneça uma lista de 3 a 4 ações práticas e priorizadas que o gestor de segurança deve tomar com base na sua análise.
-
-    Use uma linguagem profissional e direta.
+    ```json
+    {{
+      "calculo_por_turno": [
+        {{
+          "turno": 1,
+          "populacao": {populations[0] if len(populations) > 0 else 0},
+          "regra_base_aplicada": "Descrição da regra base encontrada na Base de Conhecimento.",
+          "calculo_base": <numero_base_brigadistas>,
+          "regra_acrescimo_aplicada": "Descrição da regra de acréscimo, se aplicável.",
+          "calculo_acrescimo": <numero_adicional_brigadistas>,
+          "total_turno": <total_brigadistas_no_turno>
+        }},
+        {{
+          "turno": 2,
+          "populacao": {populations[1] if len(populations) > 1 else 0},
+          "regra_base_aplicada": "...",
+          "calculo_base": <...>,
+          "regra_acrescimo_aplicada": "...",
+          "calculo_acrescimo": <...>,
+          "total_turno": <...>
+        }}
+      ],
+      "resumo_final": {{
+        "total_geral_brigadistas": <soma_de_todos_os_turnos>,
+        "maior_turno_necessidade": <maior_valor_de_total_turno>
+      }}
+    }}
+    ```
     """
-    return prompt
