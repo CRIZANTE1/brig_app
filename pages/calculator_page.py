@@ -1,19 +1,20 @@
-# pages/calculator_page.py
 
 import streamlit as st
 from utils.calculator import calculate_total_brigade, get_table_divisions
 from utils.google_sheets_handler import GoogleSheetsHandler
 from IA.ai_operations import AIOperations
 from IA.prompts import get_brigade_analysis_prompt
-# IMPORTAÇÃO CORRETA ADICIONADA AQUI
-from auth.auth_utils import get_user_email
 
-def show_page(handler: GoogleSheetsHandler, ai_operator: AIOperations):
+# Note que a importação de 'auth.auth_utils' foi removida daqui.
+
+def show_page(handler: GoogleSheetsHandler, ai_operator: AIOperations, user_email: str):
     """
     Desenha e gerencia toda a interface e lógica da página da calculadora.
+    Recebe o email do usuário como um argumento para ser usado ao salvar os dados.
     """
     st.title("Cálculo e Gestão de Brigada de Incêndio")
     
+    # --- Carregamento de Dados da Planilha ---
     st.sidebar.header("Seleção da Empresa")
     company_list = handler.get_company_list()
     if not company_list:
@@ -30,6 +31,7 @@ def show_page(handler: GoogleSheetsHandler, ai_operator: AIOperations):
     
     default_values = st.session_state.get('sheet_data', {})
     
+    # --- Formulário de Cálculo ---
     with st.form(key='brigade_form'):
         st.header("1. Parâmetros para Cálculo")
         
@@ -58,6 +60,7 @@ def show_page(handler: GoogleSheetsHandler, ai_operator: AIOperations):
 
         submit_button = st.form_submit_button(label='Calcular e Analisar com IA')
 
+    # --- Lógica de Processamento e Exibição de Resultados ---
     if submit_button:
         try:
             result = calculate_total_brigade(turn_populations, division, risk_level)
@@ -98,12 +101,10 @@ def show_page(handler: GoogleSheetsHandler, ai_operator: AIOperations):
             empresas_df = handler.get_data_as_df("Empresas")
             id_empresa = empresas_df.loc[empresas_df['Razao_Social'] == inputs['company'], 'ID_Empresa'].iloc[0]
             
-            # Chama a função importada para obter o e-mail
-            user_email = get_user_email()
-            
+            # A variável 'user_email' agora vem diretamente dos argumentos da função show_page
             data_to_save = {
                 "id_empresa": id_empresa, 
-                "usuario": user_email, # Usa o e-mail obtido
+                "usuario": user_email, 
                 "divisao": inputs['division'],
                 "risco": inputs['risk'], 
                 "populacao_turnos": inputs['populations'],
