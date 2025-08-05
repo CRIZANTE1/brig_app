@@ -1,50 +1,121 @@
+# app.py
 import streamlit as st
-# from google_sheets import authenticate_gspread, get_sheet_data
-from utils.rag_model import get_rag_recommendation
+import pandas as pd
+from utils.calculator import calculate_total_brigade, get_table_divisions
+from utils.google_sheets_handler import GoogleSheetsHandler
 from about import show_about_page
 from auth.login_page import show_login_page, show_logout_button
-from auth.auth_utils import is_user_logged_in, get_user_display_name
+from auth.auth_utils import is_user_logged_in, get_user_display_name, get_user_email
 
-def calculate_brigade(classification, area, population, risk_level, floors, has_flammable_liquids):
-    # Base calculation
-    if risk_level == "Baixo":
-        base_brigade = area / 1000
-    elif risk_level == "Médio":
-        base_brigade = area / 750
-    else:  # Alto
-        base_brigade = area / 500
+st.set_page_config(page_title="Cálculo de Brigadistas", page_icon="", layout="wide")
 
-    brigade_size = base_brigade
+def show_calculator_page(handler: GoogleSheetsHandler):
+    """Mostra a página principal da calculadora."""
+    st.title("Cálculo e Gestão de Brigada de Incêndio")
+    
+    # --- Carregamento de Dados da Planilha ---
+    st.sidebar.header("Seleção da Empresa")
+    company_list = handler.get_company_list()
+    if not company_list:
+        st.warning("Nenhuma empresa encontrada na aba 'Empresas' da planilha.")
+        return
 
-    # Population factor
-    brigade_size += population / 100
+    selected_company = st.sidebar.selectbox("Selecione a Empresa para Calcular", company_list)
 
-    # Floors factor
-    if floors > 1:
-        brigade_size += (floors - 1) / 3
+    if selected_company:
+        if st.sidebar.button("Carregar Dados da Empresa"):
+            with st.spinner(f"Carregando dados para {selected_company}..."):
+                st.session_state.sheet_data = handler.get_calculation_data(selected_company)
+                if st.session_state.sheet_data:
+                    st.sidebar.success("Dados carregados!")
+                else:
+                    st.sidebar.error("Dados não encontrados para esta empresa.")
+    
+    default_values = st.session_state.get('sheet_data', {})
+    
+    # --- Formulário de Cálculo ---
+    with st.form(key='brigade_form'):
+        st.header("1. Parâmetros para Cálculo")
+        
+        # Preenche os valores com dados da planilha, se carregados
+        div_index = get_table_divisions().index(default_values.get("Divisao", "M-2")) if default_values.get("Divisao") in get_table_divisions() else 0
+        risk_index = ["Baixo", "Médio", "Alto"].index(default_values.get("Risco", "Alto")) if default_values.get("Risco") in ["Baixo", "Médio", "Alto"] else 2
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            division = st.selectbox("Divisão da Edificação", get_table_divisions(), index=div_index)
+        with col2:
+            risk_level = st.selectbox("Nível de Risco", ["Baixo", "Médio", "Alto"], index=risk_index)
 
-    total_brigade = brigade_size
+        st.subheader("População Fixa por Turno")
+        # Extrai populações dos dados carregados (Pop_Turno1, Pop_Turno2, etc.)
+        pop_keys = sorted([k for k in default_values.keys() if k.startswith('Pop_Turno')])
+        initial_pops = [int(default_values.get(k, 0)) for k in pop_keys]
+        if not initial_pops: initial_pops = [0, 0, 0] # Padrão se não houver dados
 
-    # Classification factor
-    if classification == "Hospitalar":
-        total_brigade *= 1.25
-    elif classification == "Industrial":
-        total_brigade *= 1.20
-    elif classification == "Escolar":
-        total_brigade *= 1.15
-    elif classification == "Comercial":
-        total_brigade *= 1.10
+        turn_populations = []
+        cols_turnos = st.columns(len(initial_pops))
+        for i, col in enumerate(cols_turnos):
+            with col:
+                pop = col.number_input(f"Pop. Turno {i+1}", min_value=0, step=1, value=initial_pops[i])
+                turn_populations.append(pop)
 
-    # Flammable liquids factor
-    if has_flammable_liquids:
-        total_brigade *= 1.20
+        submit_button = st.form_submit_button(label='Calcular Brigada')
 
-    # Minimums and final rounding
-    final_size = max(2, int(round(total_brigade)))
+    # --- Exibição de Resultados ---
+    if submit_button:
+        try:
+            result = calculate_total_brigade(turn_populations, division, risk_level)
+            st.session_state.last_result = result
+            st.session_state.last_inputs = {
+                "company": selected_company,
+                "division": division,
+                "risk": risk_level,
+                "populations": turn_populations
+            }
+        except ValueError as e:
+            st.error(f"Erro no cálculo: {e}")
+            st.session_state.last_result = None
 
-    return final_size
+    if 'last_result' in st.session_state and st.session_state.last_result:
+        result = st.session_state.last_result
+        inputs = st.session_state.last_inputs
+        
+        st.header(f"2. Resultado do Dimensionamento para: {inputs['company']}")
+        col1, col2 = st.columns(2)
+        col1.metric("Total de Brigadistas Necessários", result['total_brigadistas'])
+        col2.metric("Efetivo Mínimo por Turno (Maior Turno)", result['maior_turno_necessidade'])
+        
+        with st.expander("Ver Detalhes do Cálculo por Turno"):
+            for i, num in enumerate(result['brigadistas_por_turno']):
+                st.write(f"- **Turno {i+1}:** Necessita de **{num} brigadistas** (para uma população de {inputs['populations'][i]}) ")
+        
+        # --- Brigadistas Atuais e Opção de Salvar ---
+        st.header("3. Gestão e Ações")
+        brigadistas_df = handler.get_brigadistas_list(inputs['company'])
+        
+        st.subheader("Brigadistas Treinados Atualmente")
+        if not brigadistas_df.empty:
+            st.dataframe(brigadistas_df[['Nome_Brigadista', 'Validade_Treinamento']])
+            st.info(f"Você possui **{len(brigadistas_df)}** brigadistas treinados para esta localidade.")
+        else:
+            st.warning("Nenhum brigadista treinado encontrado na planilha para esta empresa.")
 
-st.set_page_config(page_title="Cálculo de Brigadistas", page_icon="🔥", layout="wide")
+        if st.button("Salvar este Resultado na Planilha"):
+            empresas_df = handler.get_data_as_df(handler, "Empresas")
+            id_empresa = empresas_df.loc[empresas_df['Razao_Social'] == inputs['company'], 'ID_Empresa'].iloc[0]
+            
+            data_to_save = {
+                "id_empresa": id_empresa,
+                "usuario": get_user_email(),
+                "divisao": inputs['division'],
+                "risco": inputs['risk'],
+                "populacao_turnos": inputs['populations'],
+                "total_calculado": result['total_brigadistas'],
+                "detalhe_turnos": result['brigadistas_por_turno']
+            }
+            handler.save_calculation_result(data_to_save)
+
 
 def main():
     if not is_user_logged_in():
@@ -52,61 +123,16 @@ def main():
         return
 
     show_logout_button()
-    st.sidebar.write(f"Bem-vindo, {get_user_display_name()}!")
+    st.sidebar.success(f"Bem-vindo, {get_user_display_name()}!")
+
+    # Inicializa o handler do Google Sheets uma vez
+    handler = GoogleSheetsHandler()
 
     st.sidebar.title("Navegação")
     page = st.sidebar.radio("Selecione uma página", ["Cálculo de Brigadistas", "Sobre"])
 
     if page == "Cálculo de Brigadistas":
-        st.title("Cálculo de Brigada de Incêndio")
-
-        # Google Sheets Integration
-        # st.subheader("Integração com Google Sheets")
-        # spreadsheet_id = st.text_input("ID da Planilha Google")
-        # sheet_name = st.text_input("Nome da Aba")
-
-        # if st.button("Carregar Dados da Planilha"):
-        #     gc = authenticate_gspread()
-        #     if gc:
-        #         data = get_sheet_data(gc, spreadsheet_id, sheet_name)
-        #         if data:
-        #             st.session_state.sheet_data = data[0]  # Assuming first row has the data
-        #             st.success("Dados carregados com sucesso!")
-
-        with st.form(key='brigade_form'):
-            st.subheader("Dados da Edificação")
-
-            # Pre-fill form with data from Google Sheets if available
-            default_values = st.session_state.get('sheet_data', {})
-
-            col1, col2 = st.columns(2)
-
-            with col1:
-                classification = st.selectbox("Classificação da Edificação", ["Residencial", "Comercial", "Industrial", "Hospitalar", "Escolar"], index=["Residencial", "Comercial", "Industrial", "Hospitalar", "Escolar"].index(default_values.get("Classificação da Edificação", "Residencial")))
-                area = st.number_input("Área Total da Edificação (m²)", min_value=0.0, step=10.0, value=float(default_values.get("Área Total da Edificação (m²)", 0.0)))
-                population = st.number_input("População Fixa", min_value=0, step=1, value=int(default_values.get("População Fixa", 0)))
-
-            with col2:
-                risk_level = st.selectbox("Nível de Risco", ["Baixo", "Médio", "Alto"], index=["Baixo", "Médio", "Alto"].index(default_values.get("Nível de Risco", "Baixo")))
-                floors = st.number_input("Número de Pavimentos", min_value=1, step=1, value=int(default_values.get("Número de Pavimentos", 1)))
-                has_flammable_liquids = st.checkbox("Possui Líquidos Inflamáveis?", value=bool(default_values.get("Possui Líquidos Inflamáveis?", False)))
-
-            submit_button = st.form_submit_button(label='Calcular')
-
-        if submit_button:
-            brigade_size = calculate_brigade(classification, area, population, risk_level, floors, has_flammable_liquids)
-            st.success(f"O número de brigadistas recomendado é: {brigade_size}")
-
-            # Get and display RAG recommendation
-            rag_data = {
-                "risk_level": risk_level,
-                "area": area,
-                "has_flammable_liquids": has_flammable_liquids,
-                "brigade_size": brigade_size
-            }
-            rag_recommendation = get_rag_recommendation(rag_data)
-            st.markdown(rag_recommendation)
-
+        show_calculator_page(handler)
     elif page == "Sobre":
         show_about_page()
 
