@@ -1,32 +1,29 @@
 import streamlit as st
-from utils.calculator import calculate_total_brigade, get_table_divisions
 from utils.google_sheets_handler import GoogleSheetsHandler
 from IA.rag_analyzer import RAGAnalyzer
 import re
 
 
+
 def is_valid_date_format(date_string: str) -> bool:
-    """
-    Verifica se a string de data fornecida está no formato DD/MM/AAAA.
-    Retorna True se o formato for válido, False caso contrário.
-    """
-    # Garante que a entrada é uma string antes de tentar a validação
+    """Verifica se a string de data está no formato DD/MM/AAAA."""
     if not isinstance(date_string, str):
         return False
-    # Expressão regular para validar o formato DD/MM/AAAA
     pattern = re.compile(r"^\d{2}/\d{2}/\d{4}$")
     return pattern.match(date_string) is not None
+
+def get_table_divisions():
+    """Retorna uma lista fixa de divisões para o selectbox."""
+    return ["M-2", "D-2", "I-1", "I-2", "I-3", "J-4", "C-1", "C-2"]
 
 
 
 def show_brigade_management_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer, company_list: list):
     """
-    Desenha e gerencia a interface da página de Gestão de Brigadistas,
-    permitindo o upload de atestados para extração de dados com IA.
+    Desenha e gerencia a interface da página de Gestão de Brigadistas.
     """
     st.title("Gestão de Brigadistas e Atestados")
 
-    # Verifica se a lista de empresas foi carregada. Se não, exibe um erro e para.
     if not company_list:
         st.error("A lista de empresas está vazia. Verifique a aba 'Empresas' da sua planilha.")
         return
@@ -35,24 +32,12 @@ def show_brigade_management_page(handler: GoogleSheetsHandler, rag_analyzer: RAG
     
     with st.container(border=True):
         st.subheader("1. Selecione a Empresa e o Atestado")
-        selected_company = st.selectbox(
-            "Para qual empresa este atestado se aplica?", 
-            company_list, 
-            key="mgmt_company_selector"
-        )
-        validity_date = st.text_input(
-            "Data de Validade do Treinamento (DD/MM/AAAA)", 
-            placeholder="Ex: 31/12/2025"
-        )
-        uploaded_file = st.file_uploader(
-            "Carregue o atestado de brigada (PDF)", 
-            type="pdf", 
-            key="pdf_uploader"
-        )
+        selected_company = st.selectbox("Para qual empresa este atestado se aplica?", company_list, key="mgmt_company_selector")
+        validity_date = st.text_input("Data de Validade do Treinamento (DD/MM/AAAA)", placeholder="Ex: 31/12/2025")
+        uploaded_file = st.file_uploader("Carregue o atestado de brigada (PDF)", type="pdf", key="pdf_uploader")
 
     is_date_valid = is_valid_date_format(validity_date)
     
-    # O botão só é habilitado se todos os campos estiverem preenchidos corretamente
     if st.button("Extrair e Adicionar Brigadistas com IA", disabled=(not all([uploaded_file, selected_company, is_date_valid]))):
         with st.spinner("IA analisando o atestado... Este processo pode levar um momento."):
             extracted_data = rag_analyzer.extract_brigadistas_from_pdf(uploaded_file)
@@ -71,9 +56,8 @@ def show_brigade_management_page(handler: GoogleSheetsHandler, rag_analyzer: RAG
         else:
             st.error("A IA não conseguiu extrair uma lista de nomes válida do documento. Verifique o PDF ou tente novamente.")
             if extracted_data:
-                st.json(extracted_data) # Mostra a resposta da IA para depuração
+                st.json(extracted_data)
     elif not is_date_valid and validity_date:
-        # Mostra um erro se o usuário digitou algo, mas o formato está errado
         st.error("Formato de data inválido. Por favor, use DD/MM/AAAA.")
 
 # ==============================================================================
@@ -82,9 +66,9 @@ def show_brigade_management_page(handler: GoogleSheetsHandler, rag_analyzer: RAG
 
 def show_calculator_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer, user_email: str, company_list: list):
     """
-    Desenha e gerencia a interface da página principal de Cálculo de Brigada.
+    Desenha e gerencia a interface da página principal de Cálculo de Brigada via IA.
     """
-    st.title("Cálculo e Análise de Brigada de Incêndio")
+    st.title("Cálculo e Análise de Brigada de Incêndio por IA")
     
     st.sidebar.header("Seleção da Empresa")
     
@@ -92,14 +76,19 @@ def show_calculator_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer
         st.error("A lista de empresas está vazia. Verifique a aba 'Empresas' da sua planilha.")
         return
 
-    selected_company = st.sidebar.selectbox("Selecione a Empresa", company_list, key="calc_company_selector")
+    selected_company_name = st.sidebar.selectbox("Selecione a Empresa", company_list, key="calc_company_selector")
 
     if st.sidebar.button("Carregar Dados da Empresa"):
-        with st.spinner(f"Carregando dados para {selected_company}..."):
-            st.session_state.sheet_data = handler.get_calculation_data(selected_company)
+        with st.spinner(f"Carregando dados para {selected_company_name}..."):
+            st.session_state.sheet_data = handler.get_calculation_data(selected_company_name)
+            st.session_state.company_info = handler.get_company_info(selected_company_name)
             st.rerun() 
     
     default_values = st.session_state.get('sheet_data', {})
+    company_info = st.session_state.get('company_info', {})
+    
+    if company_info:
+        st.subheader(f"Analisando Instalação: {company_info.get('Imovel', 'N/A')}")
     
     with st.form(key='brigade_form'):
         st.header("1. Parâmetros para Cálculo")
@@ -118,7 +107,7 @@ def show_calculator_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer
         pop_keys = sorted([k for k in default_values.keys() if k.startswith('Pop_Turno')])
         initial_pops = [int(default_values.get(k, 0)) for k in pop_keys]
         if not initial_pops:
-            initial_pops = [0, 0, 0] # Padrão de 3 turnos se nenhum dado for carregado
+            initial_pops = [0, 0, 0]
             
         turn_populations = []
         cols_turnos = st.columns(len(initial_pops))
@@ -130,43 +119,60 @@ def show_calculator_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer
         submit_button = st.form_submit_button(label='Calcular e Analisar com IA')
 
     if submit_button:
-        result = calculate_total_brigade(turn_populations, division, risk_level)
-        st.session_state.last_result = result
-        st.session_state.last_inputs = { "company": selected_company, "division": division, "risk": risk_level, "populations": turn_populations }
+        ia_context = {
+            "installation_info": company_info,
+            "division": division,
+            "risk": risk_level,
+            "populations": turn_populations
+        }
+        with st.spinner("IA está consultando a norma e realizando o cálculo..."):
+            calculation_result = rag_analyzer.calculate_brigade_with_rag(ia_context)
+        
+        if calculation_result:
+            st.session_state.last_result = calculation_result
+            st.session_state.last_inputs = { "company_info": company_info }
+        else:
+            st.session_state.last_result = None
+            st.error("Não foi possível obter o resultado do cálculo da IA.")
 
     if 'last_result' in st.session_state and st.session_state.last_result:
-        result = st.session_state.last_result
+        result_json = st.session_state.last_result
         inputs = st.session_state.last_inputs
-        st.header(f"2. Resultado para: {inputs['company']}")
+        instalacao = result_json.get("dados_da_instalacao", {})
+        
+        st.header(f"2. Resultado do Cálculo via IA para: {instalacao.get('imovel', 'N/A')}")
         
         with st.container(border=True):
-            st.subheader("Cálculo Mínimo (ABNT NBR 14276)")
+            st.subheader("Resumo do Dimensionamento")
+            resumo = result_json.get("resumo_final", {})
+            total_geral = resumo.get("total_geral_brigadistas", "N/A")
+            maior_turno = resumo.get("maior_turno_necessidade", "N/A")
+            
             col1, col2 = st.columns(2)
-            col1.metric("Total de Brigadistas Necessários", result['total_brigadistas'])
-            col2.metric("Efetivo Mínimo por Turno (Maior Turno)", result['maior_turno_necessidade'])
+            col1.metric("Total de Brigadistas (Soma dos Turnos)", total_geral)
+            col2.metric("Efetivo Mínimo por Turno (Maior Turno)", maior_turno)
 
-        with st.container(border=True):
-            st.subheader("Análise Fundamentada da IA (RAG)")
-            with st.spinner("IA consultando a base de conhecimento e elaborando a análise..."):
-                ia_context = { 
-                    "division": inputs['division'], 
-                    "risk": inputs['risk'], 
-                    "total_brigade": result['total_brigadistas'],
-                    "populations": inputs['populations']
-                }
-                contextual_analysis = rag_analyzer.get_contextual_analysis(ia_context)
-                st.markdown(contextual_analysis)
+        with st.expander("Ver Detalhamento do Cálculo da IA (Passo a Passo)"):
+            st.json(result_json.get("calculo_por_turno", []))
         
-        if st.button("Salvar Cálculo Oficial na Planilha"):
+        if st.button("Salvar Cálculo na Planilha"):
             empresas_df = handler.get_data_as_df("Empresas")
-            id_empresa = empresas_df.loc[empresas_df['Razao_Social'] == inputs['company'], 'ID_Empresa'].iloc[0]
+            # Usa a Razao_Social que está nos dados da instalação para encontrar o ID
+            razao_social = instalacao.get("razao_social")
+            id_empresa = empresas_df.loc[empresas_df['Razao_Social'] == razao_social, 'ID_Empresa'].iloc[0]
+            
+            # Extrai os dados do JSON retornado pela IA para salvar
+            calculo_info = st.session_state.last_result.get("calculo_por_turno", [])
+            populacoes = [t.get("populacao") for t in calculo_info]
+            detalhes_turnos = [t.get("total_turno") for t in calculo_info]
+
             data_to_save = { 
                 "id_empresa": id_empresa, 
                 "usuario": user_email, 
-                "divisao": inputs['division'], 
-                "risco": inputs['risk'], 
-                "populacao_turnos": inputs['populations'], 
-                "total_calculado": result['total_brigadistas'], 
-                "detalhe_turnos": result['brigadistas_por_turno'] 
+                "divisao": inputs.get("division"), 
+                "risco": inputs.get("risk"), 
+                "populacao_turnos": str(populacoes),
+                "total_calculado": resumo.get("total_geral_brigadistas"), 
+                "detalhe_turnos": str(detalhes_turnos)
             }
             handler.save_calculation_result(data_to_save)
