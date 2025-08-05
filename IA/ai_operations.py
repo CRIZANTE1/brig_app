@@ -39,3 +39,33 @@ class AIOperations:
             logging.error(error_message)
             st.error(error_message)
             return "Não foi possível gerar a análise da IA devido a um erro."
+
+
+    def extract_brigadistas_from_pdf(self, pdf_file) -> dict:
+        """
+        Usa o Gemini para extrair uma lista de nomes de um PDF e retorna como um dicionário.
+        """
+        try:
+            prompt = get_pdf_extraction_prompt()
+            pdf_bytes = pdf_file.read()
+            
+            # Prepara o input para o modelo multimodal
+            pdf_part = {"mime_type": "application/pdf", "data": pdf_bytes}
+            
+            # Força a resposta a ser em formato JSON
+            generation_config = genai.types.GenerationConfig(response_mime_type="application/json")
+            
+            response = self.model.generate_content(
+                [prompt, pdf_part],
+                generation_config=generation_config
+            )
+
+            # Limpa e converte a resposta de texto para um dicionário Python
+            return json.loads(response.text)
+            
+        except json.JSONDecodeError:
+            st.error("Erro na extração: A IA não retornou um JSON válido.")
+            return {"nomes": []}
+        except Exception as e:
+            st.error(f"Ocorreu um erro ao processar o PDF com a IA: {e}")
+            return {"nomes": []}
