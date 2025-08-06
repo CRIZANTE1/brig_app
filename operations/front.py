@@ -73,7 +73,13 @@ def show_brigade_management_page(handler: GoogleSheetsHandler, rag_analyzer: RAG
     """
     st.title("Gestão de Brigadistas e Atestados")
     
-    sidebar_add_installation_form(handler)
+    col1, col2 = st.sidebar.columns([3, 1])
+    with col1:
+        selected_company = st.selectbox("Selecione a Empresa", company_list, key="mgmt_company_selector", label_visibility="collapsed")
+    with col2:
+        # Este botão agora chama a função de diálogo.
+        if st.button("➕", help="Adicionar Nova Instalação"):
+            add_installation_dialog(handler)
 
     if not company_list:
         st.error("A lista de empresas está vazia. Verifique a aba 'Empresas' da sua planilha.")
@@ -131,7 +137,13 @@ def show_calculator_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer
     
     st.sidebar.header("Seleção da Empresa")
 
-    sidebar_add_installation_form(handler)
+    col1, col2 = st.sidebar.columns([3, 1])
+    with col1:
+        selected_company = st.selectbox("Selecione a Empresa", company_list, key="mgmt_company_selector", label_visibility="collapsed")
+    with col2:
+        # Este botão agora chama a função de diálogo.
+        if st.button("➕", help="Adicionar Nova Instalação"):
+            add_installation_dialog(handler)
     
     if not company_list:
         st.error("A lista de empresas está vazia. Verifique a aba 'Empresas' da sua planilha.")
