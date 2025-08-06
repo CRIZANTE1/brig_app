@@ -66,6 +66,41 @@ def get_table_divisions():
     """Retorna uma lista fixa de divisões para o selectbox."""
     return ["M-2", "D-2", "I-1", "I-2", "I-3", "J-4", "C-1", "C-2"]
 
+def render_sidebar(handler: GoogleSheetsHandler, company_list: list) -> str:
+    """
+    Desenha a barra lateral completa, incluindo seleção de empresa e botão de adicionar.
+    Retorna o nome da empresa selecionada.
+    """
+    st.sidebar.header("Seleção da Empresa")
+    
+    col1, col2 = st.sidebar.columns([4, 1])
+    
+    with col1:
+        # Usamos uma chave única para o selectbox que será usado em todo o app
+        selected_company = st.selectbox(
+            "Selecione a Empresa", 
+            company_list, 
+            key="global_company_selector", 
+            label_visibility="collapsed"
+        )
+    
+    with col2:
+        if st.button("➕", help="Adicionar Nova Instalação"):
+            add_installation_dialog(handler)
+
+    if st.sidebar.button("Carregar Dados da Empresa", use_container_width=True):
+        with st.spinner(f"Carregando dados para {selected_company}..."):
+            st.session_state.sheet_data = handler.get_calculation_data(selected_company)
+            st.session_state.company_info = handler.get_company_info(selected_company)
+            # Limpa resultados antigos ao carregar nova empresa
+            if 'last_result' in st.session_state:
+                del st.session_state.last_result
+            if 'generated_report' in st.session_state:
+                del st.session_state.generated_report
+            st.rerun()
+            
+    return selected_company
+
 
 def show_brigade_management_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer, company_list: list):
     """
@@ -73,13 +108,7 @@ def show_brigade_management_page(handler: GoogleSheetsHandler, rag_analyzer: RAG
     """
     st.title("Gestão de Brigadistas e Atestados")
     
-    col1, col2 = st.sidebar.columns([3, 1])
-    with col1:
-        selected_company = st.selectbox("Selecione a Empresa", company_list, key="mgmt_company_selector", label_visibility="collapsed")
-    with col2:
-        # Este botão agora chama a função de diálogo.
-        if st.button("➕", help="Adicionar Nova Instalação"):
-            add_installation_dialog(handler)
+    selected_company = render_sidebar(handler, company_list)
 
     if not company_list:
         st.error("A lista de empresas está vazia. Verifique a aba 'Empresas' da sua planilha.")
@@ -137,13 +166,7 @@ def show_calculator_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer
     
     st.sidebar.header("Seleção da Empresa")
 
-    col1, col2 = st.sidebar.columns([3, 1])
-    with col1:
-        selected_company = st.selectbox("Selecione a Empresa", company_list, key="mgmt_company_selector", label_visibility="collapsed")
-    with col2:
-        # Este botão agora chama a função de diálogo.
-        if st.button("➕", help="Adicionar Nova Instalação"):
-            add_installation_dialog(handler)
+    selected_company = render_sidebar(handler, company_list)
     
     if not company_list:
         st.error("A lista de empresas está vazia. Verifique a aba 'Empresas' da sua planilha.")
