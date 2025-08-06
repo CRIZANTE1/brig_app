@@ -156,11 +156,14 @@ def show_calculator_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer
 
     selected_company = render_sidebar(handler, company_list)
     
-    if not company_list:
-        st.error("A lista de empresas está vazia. Verifique a aba 'Empresas' da sua planilha.")
-        return
-
-    selected_company_name = st.sidebar.selectbox("Selecione a Empresa", company_list, key="calc_company_selector")
+    # O resto da página continua a partir daqui, usando a 'selected_company_name' retornada.
+    default_values = st.session_state.get('sheet_data', {})
+    company_info = st.session_state.get('company_info', {})
+    
+    if company_info:
+        st.subheader(f"Analisando Instalação: {company_info.get('Imovel', 'N/A')}")
+    else:
+        st.info("Clique em 'Carregar Dados da Empresa' na barra lateral para começar.")
 
     if st.sidebar.button("Carregar Dados da Empresa"):
         with st.spinner(f"Carregando dados para {selected_company_name}..."):
