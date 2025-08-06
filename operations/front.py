@@ -114,24 +114,12 @@ def show_brigade_management_page(handler: GoogleSheetsHandler, rag_analyzer: RAG
         st.error("A lista de empresas está vazia. Verifique a aba 'Empresas' da sua planilha.")
         return
 
-    st.markdown("Use esta página para adicionar novos brigadistas à sua planilha a partir de um atestado de treinamento em PDF.")
+    st.markdown(f"Adicionar atestados para a empresa: **{selected_company}**")
     
     with st.container(border=True):
-        st.subheader("1. Selecione a Empresa e o Atestado")
-        selected_company = st.selectbox(
-            "Para qual empresa este atestado se aplica?", 
-            company_list, 
-            key="mgmt_company_selector"
-        )
-        validity_date = st.text_input(
-            "Data de Validade do Treinamento (DD/MM/AAAA)", 
-            placeholder="Ex: 31/12/2025"
-        )
-        uploaded_file = st.file_uploader(
-            "Carregue o atestado de brigada (PDF)", 
-            type="pdf", 
-            key="pdf_uploader"
-        )
+        st.subheader("1. Detalhes do Atestado")
+        validity_date = st.text_input("Data de Validade (DD/MM/AAAA)", placeholder="Ex: 31/12/2025")
+        uploaded_file = st.file_uploader("Carregue o atestado PDF", type="pdf")
 
     is_date_valid = is_valid_date_format(validity_date)
     
