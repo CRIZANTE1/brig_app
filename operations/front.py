@@ -8,7 +8,7 @@ from operations.pdf_generator import generate_pdf_report_abnt
 
 
 
-d@st.dialog("Adicionar Nova Instalação")
+@st.dialog("Adicionar Nova Instalação")
 def add_installation_dialog(handler: GoogleSheetsHandler):
     """
     Mostra um diálogo (modal) para o usuário preencher os dados de uma nova instalação.
