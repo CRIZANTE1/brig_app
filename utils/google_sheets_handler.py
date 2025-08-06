@@ -93,6 +93,45 @@ class GoogleSheetsHandler:
             return company_data.iloc[0].to_dict()
         return None
 
+    def add_new_installation(self, company_data: dict, calculation_data: dict):
+        """
+        Adiciona uma nova linha na aba 'Empresas' e uma nova linha na aba 'Dados_Calculo'.
+        Retorna True se for bem-sucedido, False caso contrário.
+        """
+        try:
+            with st.spinner("Adicionando nova instalação à planilha..."):
+                # Adiciona na aba Empresas
+                worksheet_empresas = self.spreadsheet.worksheet(EMPRESAS_SHEET)
+                # Garante que a ordem das colunas esteja correta
+                company_row = [
+                    company_data.get("ID_Empresa"),
+                    company_data.get("Razao_Social"),
+                    company_data.get("CNPJ"),
+                    company_data.get("Imovel")
+                ]
+                worksheet_empresas.append_row(company_row, value_input_option='USER_ENTERED')
+                
+                # Adiciona na aba Dados_Calculo
+                worksheet_calculo = self.spreadsheet.worksheet(DADOS_CALCULO_SHEET)
+                calc_row = [
+                    calculation_data.get("ID_Empresa"),
+                    calculation_data.get("Divisao"),
+                    calculation_data.get("Risco"),
+                    calculation_data.get("Pop_Turno1"),
+                    calculation_data.get("Pop_Turno2"),
+                    calculation_data.get("Pop_Turno3")
+                ]
+                worksheet_calculo.append_row(calc_row, value_input_option='USER_ENTERED')
+            
+            st.success(f"Instalação '{company_data.get('Imovel')}' adicionada com sucesso!")
+            # Limpa o cache para forçar a releitura da lista de empresas
+            st.cache_data.clear()
+            return True
+            
+        except Exception as e:
+            st.error(f"Ocorreu um erro ao adicionar a nova instalação: {e}")
+            return False
+
     def get_calculation_data(self, company_name: str) -> dict | None:
         empresas_df = self.get_data_as_df(EMPRESAS_SHEET)
         dados_df = self.get_data_as_df(DADOS_CALCULO_SHEET)
