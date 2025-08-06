@@ -6,6 +6,50 @@ import re
 from operations.pdf_generator import generate_pdf_report_abnt
 
 
+
+
+def sidebar_add_installation_form(handler: GoogleSheetsHandler):
+    """
+    Cria um formulário dentro de um expander na barra lateral para adicionar
+    uma nova instalação.
+    """
+    with st.sidebar.expander("➕ Adicionar Nova Instalação"):
+        with st.form("new_installation_form"):
+            st.subheader("Dados da Instalação")
+            new_id = st.text_input("ID da Empresa (Ex: RJO-02)", key="new_id")
+            new_razao = st.text_input("Razão Social", key="new_razao")
+            new_cnpj = st.text_input("CNPJ", key="new_cnpj")
+            new_imovel = st.text_input("Nome do Imóvel/Instalação", key="new_imovel")
+
+            st.subheader("Parâmetros de Cálculo")
+            new_divisao = st.selectbox("Divisão", get_table_divisions(), key="new_div")
+            new_risco = st.selectbox("Risco", ["Baixo", "Médio", "Alto"], key="new_risk")
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                new_t1 = st.number_input("Pop T1", min_value=0, step=1, key="new_t1")
+            with col2:
+                new_t2 = st.number_input("Pop T2", min_value=0, step=1, key="new_t2")
+            with col3:
+                new_t3 = st.number_input("Pop T3", min_value=0, step=1, key="new_t3")
+
+            submitted = st.form_submit_button("Salvar Nova Instalação")
+            if submitted:
+                # Validação simples
+                if not all([new_id, new_razao, new_imovel]):
+                    st.warning("Preencha pelo menos ID, Razão Social e Imóvel.")
+                else:
+                    company_data = {
+                        "ID_Empresa": new_id, "Razao_Social": new_razao,
+                        "CNPJ": new_cnpj, "Imovel": new_imovel
+                    }
+                    calculation_data = {
+                        "ID_Empresa": new_id, "Divisao": new_divisao, "Risco": new_risco,
+                        "Pop_Turno1": new_t1, "Pop_Turno2": new_t2, "Pop_Turno3": new_t3
+                    }
+                    if handler.add_new_installation(company_data, calculation_data):
+                        st.rerun() # Força a recarga do app para a nova empresa aparecer na lista
+                        
 def is_valid_date_format(date_string: str) -> bool:
     """
     Verifica se a string de data fornecida está no formato DD/MM/AAAA.
@@ -28,6 +72,8 @@ def show_brigade_management_page(handler: GoogleSheetsHandler, rag_analyzer: RAG
     Desenha e gerencia a interface da página de Gestão de Brigadistas.
     """
     st.title("Gestão de Brigadistas e Atestados")
+    
+    sidebar_add_installation_form(handler)
 
     if not company_list:
         st.error("A lista de empresas está vazia. Verifique a aba 'Empresas' da sua planilha.")
@@ -84,6 +130,8 @@ def show_calculator_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer
     st.title("Cálculo e Análise de Brigada de Incêndio por IA")
     
     st.sidebar.header("Seleção da Empresa")
+
+    sidebar_add_installation_form(handler)
     
     if not company_list:
         st.error("A lista de empresas está vazia. Verifique a aba 'Empresas' da sua planilha.")
