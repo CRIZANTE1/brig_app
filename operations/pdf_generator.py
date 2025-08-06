@@ -4,17 +4,18 @@ from datetime import datetime
 import base64
 
 # Opcional: Para embutir uma imagem (logo) no PDF
-# def get_image_as_base64(path):
+# Você pode descomentar esta função e a linha no HTML se tiver um logo.
+# def get_image_as_base64(path_to_image):
 #     try:
-#         with open(path, "rb") as image_file:
-#             return base64.b64encode(image_file.read()).decode()
+#         with open(path_to_image, "rb") as image_file:
+#             return f"data:image/png;base64,{base64.b64encode(image_file.read()).decode()}"
 #     except FileNotFoundError:
 #         return None
 
 def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
     """
     Gera um relatório em PDF a partir de um template HTML e do JSON de cálculo da IA,
-    formatado segundo as diretrizes da ABNT.
+    formatado com um layout ABNT robusto usando Flexbox.
     Retorna o conteúdo do PDF em bytes.
     """
     try:
@@ -45,55 +46,67 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
                 referencias.add(turno["regra_acrescimo_aplicada"])
         lista_referencias_html = "".join([f"<li>{ref}</li>" for ref in sorted(list(referencias))])
         
-        # --- Template CSS (Estilo ABNT) ---
+        # --- Template CSS (Estilo ABNT Robusto) ---
         css_abnt = """
             @page {
                 size: A4;
-                margin-top: 3cm;
-                margin-left: 3cm;
-                margin-bottom: 2cm;
-                margin-right: 2cm;
+                margin: 3cm 2cm 2cm 3cm; /* Superior, Direita, Inferior, Esquerda */
+                
                 @bottom-right {
-                    content: "Página " counter(page);
-                    font-family: 'Arial', sans-serif;
+                    content: counter(page);
+                    font-family: Arial, sans-serif;
                     font-size: 10pt;
+                    color: #888;
                 }
             }
             body {
-                font-family: 'Arial', sans-serif;
+                font-family: Arial, sans-serif;
                 font-size: 12pt;
                 line-height: 1.5;
                 text-align: justify;
             }
             h1, h2, h3 {
-                font-family: 'Arial', sans-serif;
-                color: #000000;
+                font-family: Arial, sans-serif;
+                color: #000;
                 font-weight: bold;
-                margin-top: 24pt; /* Espaçamento antes do título */
-                margin-bottom: 12pt; /* Espaçamento depois do título */
+                margin-top: 1.5em;
+                margin-bottom: 0.75em;
+                line-height: 1.2;
             }
             h1 { font-size: 14pt; text-transform: uppercase; text-align: center; }
             h2 { font-size: 12pt; text-transform: uppercase; }
-            p { margin-bottom: 12pt; text-indent: 1.25cm; }
-            ul, ol { padding-left: 1.25cm; }
+            p { margin: 0 0 1em 0; text-indent: 1.25cm; }
+            ul, ol { padding-left: 1.25cm; margin-bottom: 1em;}
             table {
                 width: 100%;
                 border-collapse: collapse;
-                margin-top: 12pt;
-                margin-bottom: 12pt;
+                margin: 1.5em 0;
             }
             th, td {
-                border: 1px solid #000000;
-                padding: 6px;
+                border: 1px solid #000;
+                padding: 8px;
                 text-align: center;
                 font-size: 10pt;
                 vertical-align: middle;
             }
-            th { background-color: #e0e0e0; }
-            .cover-page { text-align: center; page-break-after: always; }
-            .cover-title { font-size: 16pt; margin-top: 5cm; }
-            .cover-subtitle { font-size: 14pt; margin-top: 1cm; }
-            .cover-info { position: absolute; bottom: 3cm; width: 100%; }
+            th { background-color: #EAEAEA; font-weight: bold; }
+
+            /* --- ESTILO DA PÁGINA DE ROSTO COM FLEXBOX --- */
+            .cover-page {
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between; /* Empurra o conteúdo para o topo, centro e base */
+                align-items: center; /* Centraliza horizontalmente */
+                height: 20.7cm; /* Altura de um A4 menos as margens verticais (29.7 - 3 - 2) */
+                page-break-after: always;
+                text-align: center;
+            }
+            .cover-header, .cover-center, .cover-footer {
+                width: 100%;
+            }
+            .cover-title { font-size: 16pt; font-weight: bold; margin-top: 4cm; }
+            .cover-subtitle { font-size: 14pt; margin-top: 2cm; }
+            .cover-footer { font-size: 12pt; }
         """
 
         # --- Template HTML ---
@@ -105,14 +118,20 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
             <title>Relatório de Dimensionamento de Brigada de Incêndio</title>
         </head>
         <body>
-            <!-- Página de Rosto -->
+            <!-- Página de Rosto com Flexbox -->
             <div class="cover-page">
-                <p class="cover-title"><strong>RELATÓRIO TÉCNICO DE DIMENSIONAMENTO DE BRIGADA DE INCÊNDIO</strong></p>
-                <p class="cover-subtitle">{instalacao.get('imovel', 'Instalação não informada')}</p>
-                
-                <div class="cover-info">
+                <div class="cover-header">
+                    <!-- <img src="{get_image_as_base64('logo.png')}" style="max-height: 2cm;"> -->
                     <p>{instalacao.get('razao_social', 'Empresa não informada')}</p>
-                    <p>{datetime.now().strftime('%d de %B de %Y')}</p>
+                </div>
+                
+                <div class="cover-center">
+                    <p class="cover-title">RELATÓRIO TÉCNICO DE DIMENSIONAMENTO DE BRIGADA DE INCÊNDIO</p>
+                    <p class="cover-subtitle">{instalacao.get('imovel', 'Instalação não informada')}</p>
+                </div>
+
+                <div class="cover-footer">
+                    <p>{datetime.now().strftime('%B de %Y')}</p>
                 </div>
             </div>
 
@@ -131,8 +150,7 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
                 A metodologia empregada para o cálculo segue estritamente as diretrizes da
                 Norma Brasileira ABNT NBR 14276 e/ou Instruções Técnicas do Corpo de Bombeiros aplicáveis.
                 O dimensionamento considera, para cada turno de trabalho, a população fixa,
-                a divisão de ocupação e o grau de risco da edificação, conforme dados
-                analisados por sistema de Inteligência Artificial com base em conhecimento normativo.
+                a divisão de ocupação e o grau de risco da edificação.
             </p>
 
             <h2>3 DETALHAMENTO DO CÁLCULO</h2>
@@ -141,17 +159,9 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
             </p>
             <table>
                 <thead>
-                    <tr>
-                        <th>Turno</th>
-                        <th>População</th>
-                        <th>Cálculo Base</th>
-                        <th>Acréscimo</th>
-                        <th>Total de Brigadistas</th>
-                    </tr>
+                    <tr><th>Turno</th><th>População</th><th>Cálculo Base</th><th>Acréscimo</th><th>Total de Brigadistas</th></tr>
                 </thead>
-                <tbody>
-                    {tabela_turnos_html}
-                </tbody>
+                <tbody>{tabela_turnos_html}</tbody>
             </table>
 
             <h2>4 CONCLUSÃO</h2>
@@ -165,8 +175,7 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
             </ul>
             <p>
                 Recomenda-se que a gestão da empresa adote as medidas necessárias para treinar, capacitar
-                e manter o contingente de brigadistas em conformidade com os valores dimensionados,
-                garantindo a cobertura de todos os turnos de trabalho.
+                e manter o contingente de brigadistas em conformidade com os valores dimensionados.
             </p>
 
             <h2>5 REFERÊNCIAS NORMATIVAS</h2>
@@ -178,12 +187,9 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
         """
         
         # --- Geração do PDF ---
-        # Converte o HTML em PDF em memória, aplicando o CSS
         pdf_bytes = HTML(string=html_template).write_pdf(stylesheets=[CSS(string=css_abnt)])
         return pdf_bytes
 
     except Exception as e:
         st.error(f"Ocorreu um erro ao gerar o relatório PDF no padrão ABNT: {e}")
-        return None
-        st.error(f"Ocorreu um erro ao gerar o relatório PDF: {e}")
         return None
