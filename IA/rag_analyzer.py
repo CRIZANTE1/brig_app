@@ -93,27 +93,22 @@ class RAGAnalyzer:
 
         knowledge_context = ""
         for _, row in relevant_rules_df.iterrows():
-            knowledge_context += f"- {row.get('answer_chunk', '')} (Fonte: {row.get('norma_referencia', 'N/A')}, {row.get('section_number', 'N/A')})\n"
+            # Usa .get() para acesso seguro, evitando KeyErrors se a planilha estiver mal formatada
+            ref = row.get('norma_referencia', 'N/A')
+            sec = row.get('section_number', 'N/A')
+            ans = row.get('answer_chunk', 'Conteúdo indisponível.')
+            knowledge_context += f"- {ans} (Fonte: {ref}, {sec})\n"
+        
         prompt = get_brigade_calculation_prompt(ia_context, knowledge_context)
         
         try:
-            generation_config = genai.types.GenerationConfig(
-                response_mime_type="application/json",
-                max_output_tokens=2048  # Aumenta o limite para 2048 tokens. O padrão pode ser baixo (ex: 256 ou 1024).
-            )
-            
+            generation_config = genai.types.GenerationConfig(response_mime_type="application/json")
             response = self.model.generate_content(prompt, generation_config=generation_config)
             
-            if not response.parts:
-                st.error("A resposta da IA veio vazia.")
-                st.write("Detalhes da resposta (para depuração):", response)
-                return None
-
             return json.loads(response.text)
-            
         except json.JSONDecodeError:
             st.error("A IA não retornou um JSON válido para o cálculo. Verifique a resposta abaixo.")
-            st.text_area("Resposta Bruta da IA:", response.text if 'response' in locals() and hasattr(response, 'text') else str(response), height=200)
+            st.text_area("Resposta Bruta da IA:", response.text if 'response' in locals() else "Nenhuma resposta recebida.", height=200)
             return None
         except Exception as e:
             st.error(f"Erro ao executar o cálculo com a IA: {e}")
