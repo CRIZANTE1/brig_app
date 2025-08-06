@@ -8,47 +8,47 @@ from operations.pdf_generator import generate_pdf_report_abnt
 
 
 
-def sidebar_add_installation_form(handler: GoogleSheetsHandler):
+d@st.dialog("Adicionar Nova Instalação")
+def add_installation_dialog(handler: GoogleSheetsHandler):
     """
-    Cria um formulário dentro de um expander na barra lateral para adicionar
-    uma nova instalação.
+    Mostra um diálogo (modal) para o usuário preencher os dados de uma nova instalação.
     """
-    with st.sidebar.expander("➕ Adicionar Nova Instalação"):
-        with st.form("new_installation_form"):
-            st.subheader("Dados da Instalação")
-            new_id = st.text_input("ID da Empresa (Ex: RJO-02)", key="new_id")
-            new_razao = st.text_input("Razão Social", key="new_razao")
-            new_cnpj = st.text_input("CNPJ", key="new_cnpj")
-            new_imovel = st.text_input("Nome do Imóvel/Instalação", key="new_imovel")
+    # Usamos um formulário dentro do diálogo para agrupar os inputs.
+    with st.form("new_installation_dialog_form"):
+        st.subheader("Dados da Instalação")
+        # Usamos chaves únicas para os widgets dentro do diálogo para evitar conflitos.
+        new_id = st.text_input("ID da Empresa (Ex: RJO-02)", key="dialog_id")
+        new_razao = st.text_input("Razão Social", key="dialog_razao")
+        new_cnpj = st.text_input("CNPJ", key="dialog_cnpj")
+        new_imovel = st.text_input("Nome do Imóvel/Instalação", key="dialog_imovel")
 
-            st.subheader("Parâmetros de Cálculo")
-            new_divisao = st.selectbox("Divisão", get_table_divisions(), key="new_div")
-            new_risco = st.selectbox("Risco", ["Baixo", "Médio", "Alto"], key="new_risk")
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                new_t1 = st.number_input("Pop T1", min_value=0, step=1, key="new_t1")
-            with col2:
-                new_t2 = st.number_input("Pop T2", min_value=0, step=1, key="new_t2")
-            with col3:
-                new_t3 = st.number_input("Pop T3", min_value=0, step=1, key="new_t3")
+        st.subheader("Parâmetros de Cálculo")
+        new_divisao = st.selectbox("Divisão", get_table_divisions(), key="dialog_div")
+        new_risco = st.selectbox("Risco", ["Baixo", "Médio", "Alto"], key="dialog_risk")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1: new_t1 = st.number_input("Pop T1", 0, key="dialog_t1")
+        with col2: new_t2 = st.number_input("Pop T2", 0, key="dialog_t2")
+        with col3: new_t3 = st.number_input("Pop T3", 0, key="dialog_t3")
 
-            submitted = st.form_submit_button("Salvar Nova Instalação")
-            if submitted:
-                # Validação simples
-                if not all([new_id, new_razao, new_imovel]):
-                    st.warning("Preencha pelo menos ID, Razão Social e Imóvel.")
-                else:
-                    company_data = {
-                        "ID_Empresa": new_id, "Razao_Social": new_razao,
-                        "CNPJ": new_cnpj, "Imovel": new_imovel
-                    }
-                    calculation_data = {
-                        "ID_Empresa": new_id, "Divisao": new_divisao, "Risco": new_risco,
-                        "Pop_Turno1": new_t1, "Pop_Turno2": new_t2, "Pop_Turno3": new_t3
-                    }
-                    if handler.add_new_installation(company_data, calculation_data):
-                        st.rerun() # Força a recarga do app para a nova empresa aparecer na lista
+        submitted = st.form_submit_button("Salvar Nova Instalação")
+        if submitted:
+            # Validação simples dos campos obrigatórios.
+            if not all([new_id, new_razao, new_imovel]):
+                st.warning("Preencha pelo menos ID, Razão Social e Imóvel.")
+            else:
+                company_data = {
+                    "ID_Empresa": new_id, "Razao_Social": new_razao,
+                    "CNPJ": new_cnpj, "Imovel": new_imovel
+                }
+                calculation_data = {
+                    "ID_Empresa": new_id, "Divisao": new_divisao, "Risco": new_risco,
+                    "Pop_Turno1": new_t1, "Pop_Turno2": new_t2, "Pop_Turno3": new_t3
+                }
+                # Chama a função do handler para salvar os dados na planilha.
+                if handler.add_new_installation(company_data, calculation_data):
+                    # st.rerun() fecha o diálogo e recarrega a página inteira.
+                    st.rerun()
                         
 def is_valid_date_format(date_string: str) -> bool:
     """
