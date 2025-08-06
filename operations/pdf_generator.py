@@ -25,7 +25,6 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
         resumo = calculation_json.get("resumo_final", {})
         
         # --- Construção de Elementos Dinâmicos ---
-        # Tabela de Turnos
         tabela_turnos_html = ""
         for turno in calculo_turnos:
             tabela_turnos_html += f"""
@@ -38,7 +37,6 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
                 </tr>
             """
 
-        # Lista de Referências
         referencias = set()
         for turno in calculo_turnos:
             if turno.get("regra_base_aplicada"): referencias.add(turno["regra_base_aplicada"])
@@ -51,59 +49,19 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
             @page {
                 size: A4;
                 margin: 3cm 2cm 2cm 3cm; /* Superior, Direita, Inferior, Esquerda */
-                
-                @bottom-right {
-                    content: counter(page);
-                    font-family: Arial, sans-serif;
-                    font-size: 10pt;
-                    color: #888;
-                }
+                @bottom-right { content: counter(page); font-family: Arial, sans-serif; font-size: 10pt; color: #888; }
             }
-            body {
-                font-family: Arial, sans-serif;
-                font-size: 12pt;
-                line-height: 1.5;
-                text-align: justify;
-            }
-            h1, h2, h3 {
-                font-family: Arial, sans-serif;
-                color: #000;
-                font-weight: bold;
-                margin-top: 1.5em;
-                margin-bottom: 0.75em;
-                line-height: 1.2;
-            }
+            body { font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.5; text-align: justify; }
+            h1, h2, h3 { font-family: Arial, sans-serif; color: #000; font-weight: bold; margin-top: 1.5em; margin-bottom: 0.75em; line-height: 1.2; }
             h1 { font-size: 14pt; text-transform: uppercase; text-align: center; }
             h2 { font-size: 12pt; text-transform: uppercase; }
             p { margin: 0 0 1em 0; text-indent: 1.25cm; }
-            ul, ol { padding-left: 1.25cm; margin-bottom: 1em;}
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                margin: 1.5em 0;
-            }
-            th, td {
-                border: 1px solid #000;
-                padding: 8px;
-                text-align: center;
-                font-size: 10pt;
-                vertical-align: middle;
-            }
+            ul, ol { padding-left: 1.25cm; margin-bottom: 1em; }
+            table { width: 100%; border-collapse: collapse; margin: 1.5em 0; }
+            th, td { border: 1px solid #000; padding: 8px; text-align: center; font-size: 10pt; vertical-align: middle; }
             th { background-color: #EAEAEA; font-weight: bold; }
-
-            /* --- ESTILO DA PÁGINA DE ROSTO COM FLEXBOX --- */
-            .cover-page {
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between; /* Empurra o conteúdo para o topo, centro e base */
-                align-items: center; /* Centraliza horizontalmente */
-                height: 20.7cm; /* Altura de um A4 menos as margens verticais (29.7 - 3 - 2) */
-                page-break-after: always;
-                text-align: center;
-            }
-            .cover-header, .cover-center, .cover-footer {
-                width: 100%;
-            }
+            .cover-page { display: flex; flex-direction: column; justify-content: space-between; align-items: center; height: 20.7cm; page-break-after: always; text-align: center; }
+            .cover-header, .cover-center, .cover-footer { width: 100%; }
             .cover-title { font-size: 16pt; font-weight: bold; margin-top: 4cm; }
             .cover-subtitle { font-size: 14pt; margin-top: 2cm; }
             .cover-footer { font-size: 12pt; }
@@ -121,7 +79,7 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
             <!-- Página de Rosto com Flexbox -->
             <div class="cover-page">
                 <div class="cover-header">
-                    <!-- <img src="{get_image_as_base64('logo.png')}" style="max-height: 2cm;"> -->
+                    <!-- A chamada para a função de imagem foi completamente removida -->
                     <p>{instalacao.get('razao_social', 'Empresa não informada')}</p>
                 </div>
                 
@@ -137,47 +95,24 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
 
             <!-- Conteúdo do Relatório -->
             <h2>1 INTRODUÇÃO</h2>
-            <p>
-                Este relatório técnico apresenta o dimensionamento da quantidade mínima de brigadistas
-                de incêndio para a instalação "{instalacao.get('imovel', 'N/A')}",
-                pertencente à empresa {instalacao.get('razao_social', 'N/A')}. O objetivo é
-                estabelecer o efetivo necessário para garantir a conformidade com as normas de segurança
-                e a primeira resposta a uma emergência.
-            </p>
-
+            <p>Este relatório técnico apresenta o dimensionamento da quantidade mínima de brigadistas de incêndio para a instalação "{instalacao.get('imovel', 'N/A')}", pertencente à empresa {instalacao.get('razao_social', 'N/A')}. O objetivo é estabelecer o efetivo necessário para garantir a conformidade com as normas de segurança e a primeira resposta a uma emergência.</p>
             <h2>2 METODOLOGIA</h2>
-            <p>
-                A metodologia empregada para o cálculo segue estritamente as diretrizes da
-                Norma Brasileira ABNT NBR 14276 e/ou Instruções Técnicas do Corpo de Bombeiros aplicáveis.
-                O dimensionamento considera, para cada turno de trabalho, a população fixa,
-                a divisão de ocupação e o grau de risco da edificação.
-            </p>
-
+            <p>A metodologia empregada para o cálculo segue estritamente as diretrizes da Norma Brasileira ABNT NBR 14276 e/ou Instruções Técnicas do Corpo de Bombeiros aplicáveis. O dimensionamento considera, para cada turno de trabalho, a população fixa, a divisão de ocupação e o grau de risco da edificação.</p>
             <h2>3 DETALHAMENTO DO CÁLCULO</h2>
-            <p>
-                A análise resultou na seguinte composição da brigada de incêndio, distribuída por turno:
-            </p>
+            <p>A análise resultou na seguinte composição da brigada de incêndio, distribuída por turno:</p>
             <table>
                 <thead>
                     <tr><th>Turno</th><th>População</th><th>Cálculo Base</th><th>Acréscimo</th><th>Total de Brigadistas</th></tr>
                 </thead>
                 <tbody>{tabela_turnos_html}</tbody>
             </table>
-
             <h2>4 CONCLUSÃO</h2>
-            <p>
-                Com base na metodologia e nos cálculos apresentados, conclui-se que o efetivo mínimo
-                requerido para a Brigada de Incêndio da instalação é de:
-            </p>
+            <p>Com base na metodologia e nos cálculos apresentados, conclui-se que o efetivo mínimo requerido para a Brigada de Incêndio da instalação é de:</p>
             <ul>
                 <li><strong>{resumo.get('total_geral_brigadistas', 'N/A')} brigadistas no total</strong> (soma dos turnos);</li>
                 <li><strong>{resumo.get('maior_turno_necessidade', 'N/A')} brigadistas como efetivo mínimo</strong> por turno de trabalho.</li>
             </ul>
-            <p>
-                Recomenda-se que a gestão da empresa adote as medidas necessárias para treinar, capacitar
-                e manter o contingente de brigadistas em conformidade com os valores dimensionados.
-            </p>
-
+            <p>Recomenda-se que a gestão da empresa adote as medidas necessárias para treinar, capacitar e manter o contingente de brigadistas em conformidade com os valores dimensionados.</p>
             <h2>5 REFERÊNCIAS NORMATIVAS</h2>
             <ol>
                 {lista_referencias_html}
