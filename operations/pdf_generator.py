@@ -12,11 +12,37 @@ import base64
 #     except FileNotFoundError:
 #         return None
 
+def generate_organogram_html(resumo: dict) -> str:
+    """
+    Gera o código HTML para um organograma simples da brigada.
+    """
+    total_brigadistas = resumo.get('total_geral_brigadistas', 'N/A')
+    
+    # Simplesmente cria caixas para cada função. 
+    # Uma versão mais avançada poderia listar os brigadistas por turno.
+    html = f"""
+    <div class="org-chart">
+        <div class="org-level">
+            <div class="org-box coordinator">Coordenador Geral da Brigada</div>
+        </div>
+        <div class="org-line-down"></div>
+        <div class="org-level">
+            <div class="org-box chief">Chefe de Turno (Manhã)</div>
+            <div class="org-box chief">Chefe de Turno (Tarde)</div>
+            <div class="org-box chief">Chefe de Turno (Noite)</div>
+        </div>
+        <div class="org-line-down"></div>
+        <div class="org-level">
+            <div class="org-box brigadista">Brigadistas ({total_brigadistas} no total)</div>
+        </div>
+    </div>
+    """
+    return html
+
 def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
     """
     Gera um relatório em PDF a partir de um template HTML e do JSON de cálculo da IA,
-    formatado com um layout ABNT robusto, incluindo referências normativas fixas.
-    Retorna o conteúdo do PDF em bytes.
+    formatado com um layout ABNT, incluindo um organograma da brigada.
     """
     try:
         # --- Extração de Dados do JSON ---
@@ -26,6 +52,9 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
         
         # --- Construção de Elementos Dinâmicos ---
         tabela_turnos_html = ""
+        turno_mais_critico = {}
+        maior_populacao = -1
+
         for turno in calculo_turnos:
             tabela_turnos_html += f"""
                 <tr>
@@ -36,22 +65,35 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
                     <td><strong>{turno.get('total_turno', 'N/A')}</strong></td>
                 </tr>
             """
-        
-        # --- REFERÊNCIAS NORMATIVAS FIXAS NO FORMATO ABNT ---
-        # Usamos <p> em vez de <li> para controlar o recuo e o espaçamento corretamente.
+            if turno.get('populacao', 0) > maior_populacao:
+                maior_populacao = turno.get('populacao', 0)
+                turno_mais_critico = turno
+
+        explicacao_calculo_html = ""
+        if turno_mais_critico:
+            pop_critico = turno_mais_critico.get('populacao', 0)
+            base_critico = turno_mais_critico.get('calculo_base', 0)
+            acrescimo_critico = turno_mais_critico.get('calculo_acrescimo', 0)
+            total_critico = turno_mais_critico.get('total_turno', 0)
+            explicacao_calculo_html = f"""
+            <p>
+                O cálculo para o turno de maior população (Turno {turno_mais_critico.get('turno')} com {pop_critico} pessoas) serve como exemplo para a metodologia. 
+                Aplica-se a regra base da norma, resultando em <strong>{base_critico} brigadistas</strong>. 
+                Para a população excedente ({pop_critico - 10 if pop_critico > 10 else 0} pessoas), a regra de acréscimo foi aplicada, resultando em 
+                <strong>{acrescimo_critico} brigadista(s) adicional(is)</strong>. A soma destes valores 
+                totaliza os <strong>{total_critico} brigadistas</strong> necessários para este turno.
+            </p>
+            """
+
         referencias_abnt_html = """
-            <p class="reference">
-                ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. <strong>NBR 14276: Brigada de incêndio - Requisitos</strong>. Rio de Janeiro: ABNT, 2020.
-            </p>
-            <p class="reference">
-                SÃO PAULO (Estado). Decreto Estadual nº 63.911, de 10 de dezembro de 2018. <strong>Regulamento de Segurança contra Incêndio das Edificações e Áreas de Risco do Estado de São Paulo</strong>. Diário Oficial do Estado de São Paulo, São Paulo, 11 dez. 2018.
-            </p>
-            <p class="reference">
-                SÃO PAULO (Estado). Instrução Técnica nº 17/2019 – <strong>Brigada de Incêndio</strong>. Corpo de Bombeiros da Polícia Militar do Estado de São Paulo, São Paulo, 2019.
-            </p>
+            <p class="reference">ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. <strong>NBR 14276: Brigada de incêndio - Requisitos</strong>. Rio de Janeiro: ABNT, 2020.</p>
+            <p class="reference">SÃO PAULO (Estado). Decreto Estadual nº 63.911, de 10 de dezembro de 2018. <strong>Regulamento de Segurança contra Incêndio das Edificações e Áreas de Risco do Estado de São Paulo</strong>. Diário Oficial do Estado de São Paulo, São Paulo, 11 dez. 2018.</p>
+            <p class="reference">SÃO PAULO (Estado). Instrução Técnica nº 17/2019 – <strong>Brigada de Incêndio</strong>. Corpo de Bombeiros da Polícia Militar do Estado de São Paulo, São Paulo, 2019.</p>
         """
 
-        # --- Template CSS (Estilo ABNT Robusto) ---
+        organograma_html = generate_organogram_html(resumo)
+
+        # --- Template CSS (Estilo ABNT Robusto + Estilos do Organograma) ---
         css_abnt = """
             @page {
                 size: A4;
@@ -72,11 +114,27 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
             .cover-title { font-size: 16pt; font-weight: bold; margin-top: 4cm; }
             .cover-subtitle { font-size: 14pt; margin-top: 2cm; }
             .cover-footer { font-size: 12pt; }
-            /* Estilo para as referências ABNT */
-            .reference {
-                text-indent: 0; /* Remove o recuo da primeira linha */
-                padding-left: 1.25cm; /* Adiciona um recuo deslocado para as linhas seguintes */
-                margin-left: -1.25cm; /* Compensa o padding para alinhar com o texto */
+            .reference { text-indent: 0; padding-left: 1.25cm; margin-left: -1.25cm; }
+
+            /* --- ESTILOS DO ORGANOGRAMA --- */
+            .org-chart { text-align: center; margin-top: 2em; page-break-inside: avoid; }
+            .org-level { display: flex; justify-content: center; margin: 10px 0; }
+            .org-box {
+                border: 2px solid #003366;
+                padding: 10px 15px;
+                border-radius: 8px;
+                display: inline-block;
+                margin: 0 10px;
+                background-color: #ffffff;
+                font-size: 11pt;
+            }
+            .org-box.coordinator { background-color: #003366; color: white; font-weight: bold; }
+            .org-box.chief { background-color: #e6f7ff; }
+            .org-line-down {
+                width: 2px;
+                height: 20px;
+                background: #003366;
+                margin: 0 auto;
             }
         """
 
@@ -84,9 +142,8 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
         html_template = f"""
         <!DOCTYPE html>
         <html>
-        <head><meta charset="UTF-8"><title>Relatório de Brigada de Incêndio</title></head>
+        <head><meta charset="UTF-8"><title>Relatório de Brigada</title></head>
         <body>
-            <!-- Página de Rosto -->
             <div class="cover-page">
                 <div class="cover-header"><p>{instalacao.get('razao_social', 'N/A')}</p></div>
                 <div class="cover-center">
@@ -96,7 +153,6 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
                 <div class="cover-footer"><p>{datetime.now().strftime('%B de %Y')}</p></div>
             </div>
 
-            <!-- Conteúdo do Relatório -->
             <h2>1 INTRODUÇÃO</h2>
             <p>Este relatório técnico apresenta o dimensionamento da quantidade mínima de brigadistas de incêndio para a instalação "{instalacao.get('imovel', 'N/A')}", pertencente à empresa {instalacao.get('razao_social', 'N/A')}. O objetivo é estabelecer o efetivo necessário para garantir a conformidade com as normas de segurança e a primeira resposta a uma emergência.</p>
             
@@ -111,6 +167,7 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
                 </thead>
                 <tbody>{tabela_turnos_html}</tbody>
             </table>
+            {explicacao_calculo_html}
             
             <h2>4 CONCLUSÃO</h2>
             <p>Com base na metodologia e nos cálculos apresentados, conclui-se que o efetivo mínimo requerido para a Brigada de Incêndio da instalação é de:</p>
@@ -119,9 +176,12 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
                 <li><strong>{resumo.get('maior_turno_necessidade', 'N/A')} brigadistas como efetivo mínimo</strong> por turno de trabalho.</li>
             </ul>
             <p>Recomenda-se que a gestão da empresa adote as medidas necessárias para treinar, capacitar e manter o contingente de brigadistas em conformidade com os valores dimensionados.</p>
-            
-            <!-- SEÇÃO DE REFERÊNCIAS ATUALIZADA -->
-            <h2 style="page-break-before: always;">REFERÊNCIAS</h2>
+
+            <h2 style="page-break-before: always;">5 ORGANOGRAMA SUGERIDO DA BRIGADA</h2>
+            <p>Para garantir uma estrutura de comando eficaz, sugere-se a seguinte organização funcional para a brigada de incêndio, em conformidade com a ABNT NBR 14276. A estrutura deve ser replicada e adaptada para cada turno de trabalho.</p>
+            {organograma_html}
+
+            <h2 style="page-break-before: always;">6 REFERÊNCIAS</h2>
             {referencias_abnt_html}
         </body>
         </html>
@@ -132,5 +192,5 @@ def generate_pdf_report_abnt(calculation_json: dict) -> bytes:
         return pdf_bytes
 
     except Exception as e:
-        st.error(f"Ocorreu um erro ao gerar o relatório PDF no padrão ABNT: {e}")
+        st.error(f"Ocorreu um erro ao gerar o relatório PDF: {e}")
         return None
