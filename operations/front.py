@@ -271,7 +271,7 @@ def show_calculator_page(handler: GoogleSheetsHandler, rag_analyzer: RAGAnalyzer
                     st.error(f"Não foi possível encontrar o ID da empresa para '{razao_social}'. Resultado não salvo.")
         
         with col_pdf:
-            pdf_bytes = generate_pdf_report_abnt(result_json)
+            pdf_bytes = generate_pdf_report_abnt(result_json, inputs)
             if pdf_bytes:
                 st.download_button(
                     label="Baixar Relatório ABNT (PDF)",
