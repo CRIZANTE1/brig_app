@@ -157,7 +157,7 @@ def generate_pdf_report_abnt(calculation_json: dict, inputs: dict) -> bytes:
                 <li><strong>{resumo.get('total_geral_brigadistas', 'N/A')} brigadistas no total</strong> (soma dos turnos);</li>
                 <li><strong>{resumo.get('maior_turno_necessidade', 'N/A')} brigadistas como efetivo mínimo</strong> por turno de trabalho.</li>
             </ul>
-            <p>Recomenda-se que a gestão da empresa adote as medidas necessárias para treinar, capacitar e manter o contingente de brigadistas em conformidade com os valores dimensionados.</p>
+            <p>Recomenda-se que a gestão adote as medidas necessárias para treinar, capacitar e manter o contingente de brigadistas em conformidade com os valores dimensionados.</p>
 
             <h2 style="page-break-before: always;">5 ORGANOGRAMA SUGERIDO DA BRIGADA</h2>
             <p>Para garantir uma estrutura de comando eficaz, sugere-se a seguinte organização funcional para a brigada de incêndio, em conformidade com a ABNT NBR 14276. A estrutura deve ser replicada e adaptada para cada turno de trabalho.</p>
