@@ -71,6 +71,10 @@ class RAGAnalyzer:
         # Chama a função global cacheada, passando os argumentos "hashable"
         self.rag_df, self.rag_embeddings = load_and_embed_rag_base(gspread_client, rag_sheet_id)
 
+         self.thinking_config = types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(thinking_budget=-1)
+        )
+
     def _find_relevant_chunks(self, query_text: str, top_k: int = 5) -> pd.DataFrame:
         """Encontra as regras mais relevantes na base de conhecimento usando busca semântica."""
         if self.rag_df.empty or self.rag_embeddings is None or self.rag_embeddings.size == 0:
@@ -148,8 +152,14 @@ class RAGAnalyzer:
             pdf_bytes = pdf_file.read()
             pdf_part = {"mime_type": "application/pdf", "data": pdf_bytes}
             generation_config = genai.types.GenerationConfig(response_mime_type="application/json")
-            
+
+            combined_config = types.GenerateContentConfig(
+                thinking_config=self.thinking_config.thinking_config,
+                response_mime_type="application/json"
+            )
+
             response = self.model.generate_content([prompt, pdf_part], generation_config=generation_config)
+            
 
             if not response.parts:
                 self._handle_blocked_response(response)
