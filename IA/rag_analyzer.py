@@ -1,10 +1,8 @@
-# IA/rag_analyzer.py
 import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import google.generativeai as genai
-from google.generativeai import types
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 import json
 from .prompts import get_pdf_extraction_prompt, get_brigade_calculation_prompt, get_report_generation_prompt
@@ -15,18 +13,21 @@ def load_and_embed_rag_base(_gspread_client, rag_sheet_id: str) -> tuple[pd.Data
     Carrega a planilha RAG pelo ID fornecido, gera embeddings para a coluna 'question'
     e armazena os resultados em cache.
     """
+    # Validação inicial do ID da planilha
     if not rag_sheet_id or rag_sheet_id == "not_defined":
         st.error("O ID da planilha RAG ('rag_sheet_id') não está definido nos secrets.")
         return pd.DataFrame(), None
         
     try:
+        # Abre a planilha RAG e lê a aba de conhecimento
         spreadsheet = _gspread_client.open_by_key(rag_sheet_id)
         worksheet = spreadsheet.worksheet("RAG_Knowledge_Base")
         df = pd.DataFrame(worksheet.get_all_records())
 
+        # Validação das colunas essenciais
         required_columns = ["question", "answer_chunk", "norma_referencia", "section_number"]
         if df.empty or not all(col in df.columns for col in required_columns):
-            st.error(f"A aba 'RAG_Knowledge_Base' está vazia ou não contém as colunas necessárias: {required_columns}.")
+            st.error(f"A aba 'RAG_Knowledge_Base' está vazia ou não contém todas as colunas necessárias: {required_columns}.")
             return pd.DataFrame(), None
         
         with st.spinner(f"Indexando a base de conhecimento da IA ({len(df)} regras)..."):
@@ -46,20 +47,19 @@ def load_and_embed_rag_base(_gspread_client, rag_sheet_id: str) -> tuple[pd.Data
 class RAGAnalyzer:
     def __init__(self, gspread_client, rag_sheet_id: str):
         """
-        Inicializa o analisador RAG, configurando o modelo Gemini com segurança e
-        pensamento dinâmico, e carregando a base de conhecimento.
+        Inicializa o analisador RAG.
+        - Configura o modelo Gemini.
+        - Carrega e indexa a base de conhecimento da planilha, usando a função cacheada.
         """
         try:
             api_key = st.secrets["general"]["GOOGLE_API_KEY"]
             genai.configure(api_key=api_key)
-            
             self.safety_settings = {
                 HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
                 HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
                 HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
                 HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
             }
-            
             self.model = genai.GenerativeModel(
                 'gemini-2.5-flash',
                 safety_settings=self.safety_settings
@@ -68,12 +68,8 @@ class RAGAnalyzer:
             st.error(f"Falha ao configurar o modelo Gemini: {e}")
             st.stop()
         
+        # Chama a função global cacheada, passando os argumentos "hashable"
         self.rag_df, self.rag_embeddings = load_and_embed_rag_base(gspread_client, rag_sheet_id)
-
-        # Configuração para ativar o pensamento dinâmico
-        self.thinking_config = types.GenerateContentConfig(
-            thinking_config=types.ThinkingConfig(thinking_budget=-1)
-        )
 
     def _find_relevant_chunks(self, query_text: str, top_k: int = 5) -> pd.DataFrame:
         """Encontra as regras mais relevantes na base de conhecimento usando busca semântica."""
@@ -94,9 +90,10 @@ class RAGAnalyzer:
             return pd.DataFrame()
 
     def _handle_blocked_response(self, response) -> None:
-        """Função de helper para exibir mensagens de erro detalhadas sobre bloqueios de segurança."""
+        """Função de helper para exibir mensagens de erro detalhadas sobre bloqueios."""
         st.error("A IA retornou uma resposta vazia, indicando um possível bloqueio de segurança.")
         try:
+            # Tenta acessar o feedback detalhado, se disponível
             feedback = response.prompt_feedback
             if feedback.block_reason:
                 st.warning(f"Razão do Bloqueio: {feedback.block_reason.name}")
@@ -119,6 +116,7 @@ class RAGAnalyzer:
 
         knowledge_context = ""
         for _, row in relevant_rules_df.iterrows():
+            # Usa .get() para acesso seguro, evitando KeyErrors se a planilha estiver mal formatada
             ref = row.get('norma_referencia', 'N/A')
             sec = row.get('section_number', 'N/A')
             ans = row.get('answer_chunk', 'Conteúdo indisponível.')
@@ -127,12 +125,8 @@ class RAGAnalyzer:
         prompt = get_brigade_calculation_prompt(ia_context, knowledge_context)
         
         try:
-            combined_config = types.GenerateContentConfig(
-                thinking_config=self.thinking_config.thinking_config,
-                response_mime_type="application/json"
-            )
-
-            response = self.model.generate_content(prompt, generation_config=combined_config)
+            generation_config = genai.types.GenerationConfig(response_mime_type="application/json")
+            response = self.model.generate_content(prompt, generation_config=generation_config)
 
             if not response.parts:
                 self._handle_blocked_response(response)
@@ -153,14 +147,10 @@ class RAGAnalyzer:
             prompt = get_pdf_extraction_prompt()
             pdf_bytes = pdf_file.read()
             pdf_part = {"mime_type": "application/pdf", "data": pdf_bytes}
-
-            combined_config = types.GenerateContentConfig(
-                thinking_config=self.thinking_config.thinking_config,
-                response_mime_type="application/json"
-            )
-
-            response = self.model.generate_content([prompt, pdf_part], generation_config=combined_config)
+            generation_config = genai.types.GenerationConfig(response_mime_type="application/json")
             
+            response = self.model.generate_content([prompt, pdf_part], generation_config=generation_config)
+
             if not response.parts:
                 self._handle_blocked_response(response)
                 return {"nomes": []}
@@ -179,10 +169,11 @@ class RAGAnalyzer:
             return "Erro: Dados de cálculo não fornecidos para gerar o relatório."
             
         try:
+            # Cria o prompt usando o JSON do cálculo
             prompt = get_report_generation_prompt(calculation_json)
             
-            # Passa a configuração de pensamento para a geração do relatório
-            response = self.model.generate_content(prompt, generation_config=self.thinking_config)
+            # Chama a IA para gerar o texto do relatório
+            response = self.model.generate_content(prompt)
             
             return response.text
         except Exception as e:
