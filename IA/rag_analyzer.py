@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 import json
 from .prompts import get_pdf_extraction_prompt, get_brigade_calculation_prompt, get_report_generation_prompt
 
