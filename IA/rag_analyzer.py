@@ -61,7 +61,7 @@ class RAGAnalyzer:
                 HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
             }
             self.model = genai.GenerativeModel(
-                'gemini-2.5-pro',
+                'gemini-2.5-flash',
                 safety_settings=self.safety_settings
             )
         except Exception as e:
