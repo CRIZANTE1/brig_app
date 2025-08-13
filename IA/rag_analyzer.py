@@ -72,7 +72,7 @@ class RAGAnalyzer:
 
         # Configuração para ativar o pensamento dinâmico
         self.thinking_config = types.GenerateContentConfig(
-            thinking_config=types.ThinkingConfig(thinking_budget=1024)
+            thinking_config=types.ThinkingConfig(thinking_budget=-1)
         )
 
     def _find_relevant_chunks(self, query_text: str, top_k: int = 5) -> pd.DataFrame:
