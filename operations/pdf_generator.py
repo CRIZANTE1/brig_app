@@ -8,8 +8,6 @@ def generate_organogram_html(resumo: dict) -> str:
     """
     total_brigadistas = resumo.get('total_geral_brigadistas', 'N/A')
     
-    # Este é um organograma genérico. Pode ser expandido para mostrar
-    # a distribuição por turno se os dados estiverem disponíveis.
     html = f"""
     <div class="org-chart">
         <div class="org-level">
@@ -39,7 +37,6 @@ def generate_pdf_report_abnt(calculation_json: dict, inputs: dict) -> bytes:
         instalacao = calculation_json.get("dados_da_instalacao", {})
         calculo_turnos = calculation_json.get("calculo_por_turno", [])
         resumo = calculation_json.get("resumo_final", {})
-        # Pega a Divisão e o Risco dos inputs do formulário
         divisao = inputs.get("division", "N/A")
         risco = inputs.get("risk", "N/A")
 
@@ -64,19 +61,17 @@ def generate_pdf_report_abnt(calculation_json: dict, inputs: dict) -> bytes:
 
         explicacao_calculo_html = ""
         if turno_mais_critico:
-            pop_critico = turno_mais_critico.get('populacao', 0)
-            base_critico = turno_mais_critico.get('calculo_base', 0)
-            acrescimo_critico = turno_mais_critico.get('calculo_acrescimo', 0)
-            total_critico = turno_mais_critico.get('total_turno', 0)
-            explicacao_calculo_html = f"""
-            <p>
-                O cálculo para o turno de maior população (Turno {turno_mais_critico.get('turno')} com {pop_critico} pessoas) serve como exemplo para a metodologia. 
-                Aplica-se a regra base da norma, resultando em <strong>{base_critico} brigadistas</strong>. 
-                Para a população excedente ({pop_critico - 10 if pop_critico > 10 else 0} pessoas), a regra de acréscimo foi aplicada, resultando em 
-                <strong>{acrescimo_critico} brigadista(s) adicional(is)</strong>. A soma destes valores 
-                totaliza os <strong>{total_critico} brigadistas</strong> necessários para este turno.
-            </p>
-            """
+            regra_base = turno_mais_critico.get('regra_base_aplicada', 'Regra base não especificada.')
+            regra_acrescimo = turno_mais_critico.get('regra_acrescimo_aplicada', 'Não aplicável.')
+            
+            explicacao_calculo_html = f"<p>O cálculo é fundamentado nas seguintes regras, aplicadas ao turno de maior população como exemplo:</p>"
+            
+            explicacao_calculo_html += f"<ul><li><strong>Regra Base:</strong> {regra_base}</li>"
+            
+            if "Não aplicável" not in regra_acrescimo:
+                explicacao_calculo_html += f"<li><strong>Regra de Acréscimo:</strong> {regra_acrescimo}</li>"
+            
+            explicacao_calculo_html += "</ul>"
 
         referencias_abnt_html = """
             <p class="reference">ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. <strong>NBR 14276: Brigada de incêndio - Requisitos</strong>. Rio de Janeiro: ABNT, 2020.</p>
@@ -99,7 +94,7 @@ def generate_pdf_report_abnt(calculation_json: dict, inputs: dict) -> bytes:
             h2 { font-size: 12pt; text-transform: uppercase; }
             p { margin: 0 0 1em 0; text-indent: 1.25cm; }
             ul, ol { padding-left: 1.25cm; margin-bottom: 1em; }
-            table { width: 100%; border-collapse: collapse; margin: 1.5em 0; }
+            table { width: 100%; border-collapse: collapse; margin: 1.5em 0; page-break-inside: avoid; }
             th, td { border: 1px solid #000; padding: 8px; text-align: center; font-size: 10pt; vertical-align: middle; }
             th { background-color: #EAEAEA; font-weight: bold; }
             .cover-page { display: flex; flex-direction: column; justify-content: space-between; align-items: center; height: 20.7cm; page-break-after: always; text-align: center; }
@@ -157,7 +152,7 @@ def generate_pdf_report_abnt(calculation_json: dict, inputs: dict) -> bytes:
                 <li><strong>{resumo.get('total_geral_brigadistas', 'N/A')} brigadistas no total</strong> (soma dos turnos);</li>
                 <li><strong>{resumo.get('maior_turno_necessidade', 'N/A')} brigadistas como efetivo mínimo</strong> por turno de trabalho.</li>
             </ul>
-            <p>Recomenda-se que a gestão adote as medidas necessárias para treinar, capacitar e manter o contingente de brigadistas em conformidade com os valores dimensionados.</p>
+            <p>Recomenda-se que a gestão da empresa adote as medidas necessárias para treinar, capacitar e manter o contingente de brigadistas em conformidade com os valores dimensionados.</p>
 
             <h2 style="page-break-before: always;">5 ORGANOGRAMA SUGERIDO DA BRIGADA</h2>
             <p>Para garantir uma estrutura de comando eficaz, sugere-se a seguinte organização funcional para a brigada de incêndio, em conformidade com a ABNT NBR 14276. A estrutura deve ser replicada e adaptada para cada turno de trabalho.</p>
