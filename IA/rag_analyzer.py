@@ -89,6 +89,19 @@ class RAGAnalyzer:
             st.warning(f"Erro durante a busca semântica na base de conhecimento: {e}")
             return pd.DataFrame()
 
+    def _handle_blocked_response(self, response) -> None:
+        """Função de helper para exibir mensagens de erro detalhadas sobre bloqueios."""
+        st.error("A IA retornou uma resposta vazia, indicando um possível bloqueio de segurança.")
+        try:
+            # Tenta acessar o feedback detalhado, se disponível
+            feedback = response.prompt_feedback
+            if feedback.block_reason:
+                st.warning(f"Razão do Bloqueio: {feedback.block_reason.name}")
+                for rating in feedback.safety_ratings:
+                    st.write(f"- Categoria: {rating.category.name}, Probabilidade: {rating.probability.name}")
+        except (AttributeError, IndexError):
+            st.warning("Não foi possível obter detalhes adicionais sobre o bloqueio.")
+
     def calculate_brigade_with_rag(self, ia_context: dict) -> dict | None:
         """Usa a IA e a base de conhecimento RAG para executar o cálculo da brigada e retornar um JSON."""
         divisao = ia_context.get("division")
@@ -114,11 +127,15 @@ class RAGAnalyzer:
         try:
             generation_config = genai.types.GenerationConfig(response_mime_type="application/json")
             response = self.model.generate_content(prompt, generation_config=generation_config)
+
+            if not response.parts:
+                self._handle_blocked_response(response)
+                return None
             
             return json.loads(response.text)
         except json.JSONDecodeError:
-            st.error("A IA não retornou um JSON válido para o cálculo. Verifique a resposta abaixo.")
-            st.text_area("Resposta Bruta da IA:", response.text if 'response' in locals() else "Nenhuma resposta recebida.", height=200)
+            st.error("A IA não retornou um JSON válido. Verifique a resposta abaixo.")
+            st.text_area("Resposta Bruta da IA:", response.text if 'response' in locals() else "Nenhuma resposta.", height=200)
             return None
         except Exception as e:
             st.error(f"Erro ao executar o cálculo com a IA: {e}")
@@ -133,6 +150,11 @@ class RAGAnalyzer:
             generation_config = genai.types.GenerationConfig(response_mime_type="application/json")
             
             response = self.model.generate_content([prompt, pdf_part], generation_config=generation_config)
+
+            if not response.parts:
+                self._handle_blocked_response(response)
+                return {"nomes": []}
+                
             return json.loads(response.text)
         except Exception as e:
             st.error(f"Ocorreu um erro ao processar o PDF com a IA: {e}")
