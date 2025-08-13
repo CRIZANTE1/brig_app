@@ -60,7 +60,7 @@ class RAGAnalyzer:
                 HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
                 HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
             }
-            self.model = genai.GenerativeModel('gemini-2.5-pro')
+            self.model = genai.GenerativeModel('gemini-2.5-flash')
         except Exception as e:
             st.error(f"Falha ao configurar o modelo Gemini: {e}")
             st.stop()
